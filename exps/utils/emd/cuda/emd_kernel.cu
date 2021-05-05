@@ -1,8 +1,13 @@
+/**********************************
+ * Original Author: Haoqiang Fan
+ * Modified by: Kaichun Mo
+ *********************************/
+
 #ifndef _EMD_KERNEL
 #define _EMD_KERNEL
 
 #ifndef AT_CHECK
-#define AT_CHECK TORCH_CHECK 
+#define AT_CHECK TORCH_CHECK
 #endif
 
 #include <cmath>

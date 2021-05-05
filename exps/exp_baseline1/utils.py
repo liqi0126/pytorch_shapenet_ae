@@ -15,7 +15,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 def printout(flog, strout):
     print(strout)
-    flog.write(strout + '\n')
+    if flog is not None:
+        flog.write(strout + '\n')
 
 def save_checkpoint(models, model_names, dirname, epoch=None, prepend_epoch=False, optimizers=None, optimizer_names=None):
     if len(models) != len(model_names) or (optimizers is not None and len(optimizers) != len(optimizer_names)):

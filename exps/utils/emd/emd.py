@@ -29,8 +29,6 @@ def earth_mover_distance(xyz1, xyz2, transpose=True):
         xyz2 (torch.Tensor): (b, 3, n1)
         transpose (bool): whether to transpose inputs as it might be BCN format.
             Extensions only support BNC format.
-        sqrt (bool): whether to square root distance
-        eps (float): to safely sqrt
 
     Returns:
         cost (torch.Tensor): (b)

@@ -1,4 +1,5 @@
+__pycache__
 build
 dist
-__pycache__
-chamfer_ext.egg-info
+emd_ext.egg-info
+*.so

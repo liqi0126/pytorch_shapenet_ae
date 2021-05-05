@@ -56,7 +56,7 @@ def train(conf):
 
     # create logs
     if not conf.no_console_log:
-        header = '     Time    Epoch     Dataset    Iteration    Progress(%)       LR    CDLoss    KLDivLoss   TotalLoss'
+        header = '     Time    Epoch     Dataset    Iteration    Progress(%)       LR    ReconLoss    KLDivLoss   TotalLoss'
     if not conf.no_tb_log:
         # https://github.com/lanpa/tensorboard-pytorch
         from tensorboardX import SummaryWriter
