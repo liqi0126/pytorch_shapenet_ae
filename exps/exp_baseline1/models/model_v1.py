@@ -47,6 +47,45 @@ class PointNet(nn.Module):
         return net
 
 
+class Sampler(nn.Module):
+
+    def __init__(self, feature_size, hidden_size, probabilistic=True):
+        super(Sampler, self).__init__()
+        self.probabilistic = probabilistic
+
+        self.mlp1 = nn.Linear(feature_size, hidden_size)
+        self.mlp2mu = nn.Linear(hidden_size, feature_size)
+        self.mlp2var = nn.Linear(hidden_size, feature_size)
+
+    def forward(self, x):
+        encode = torch.relu(self.mlp1(x))
+        mu = self.mlp2mu(encode)
+
+        if self.probabilistic:
+            logvar = self.mlp2var(encode)
+            std = logvar.mul(0.5).exp_()
+            eps = torch.randn_like(std)
+
+            kld = mu.pow(2).add_(logvar.exp()).mul_(-1).add_(1).add_(logvar)
+
+            return torch.cat([eps.mul(std).add_(mu), kld], 1)
+        else:
+            return mu
+
+
+class SampleDecoder(nn.Module):
+
+    def __init__(self, feature_size, hidden_size):
+        super(SampleDecoder, self).__init__()
+        self.mlp1 = nn.Linear(feature_size, hidden_size)
+        self.mlp2 = nn.Linear(hidden_size, feature_size)
+
+    def forward(self, input_feature):
+        output = torch.relu(self.mlp1(input_feature))
+        output = torch.relu(self.mlp2(output))
+        return output
+
+
 class FCDecoder(nn.Module):
 
     def __init__(self, num_point=2048):
@@ -111,6 +150,9 @@ class Network(nn.Module):
         self.conf = conf
 
         self.encoder = PointNet()
+        
+        self.sample_encoder = Sampler(128, 256, probabilistic=conf.probabilistic)
+        self.sample_decoder = SampleDecoder(128, 256)
 
         if conf.decoder_type == 'fc':
             self.decoder = FCDecoder(num_point=conf.num_point)
@@ -127,8 +169,14 @@ class Network(nn.Module):
     """
     def forward(self, input_pcs):
         feats = self.encoder(input_pcs)
+        feats = self.sample_encoder(feats)
+        ret_list = dict()
+        if self.conf.probabilistic:
+            feats, obj_kldiv_loss = torch.chunk(feats, 2, 1)
+            ret_list['kldiv_loss'] = -obj_kldiv_loss.sum(dim=1)
+        feats = self.sample_decoder(feats)
         output_pcs = self.decoder(feats)
-        return output_pcs, feats
+        return output_pcs, feats, ret_list
     
     def get_loss(self, pc1, pc2):
         if self.conf.loss_type == 'cd':

@@ -1,0 +1,42 @@
+./train_v1.py --exp_suffix fc-cd-vae --data_dir ../../data/PartNetShapeData-Chair/train --val_data_dir ../../data/PartNetShapeData-Chair/val --num_point 2048 --decoder_type fc --loss_type cd --model_version model_v1 --kldiv_loss_weight 1e-4 --probabilistic --overwrite
+
+Random Seed: 3124256514
+Using device: cuda:0
+
+[PartNetPartDataset 4489] data_dir: ../../data/PartNetShapeData-Chair/train, num_point: 2048
+[PartNetPartDataset 617] data_dir: ../../data/PartNetShapeData-Chair/val, num_point: 2048
+Using FCDecoder-NoBN!
+
+Network(
+  (encoder): PointNet(
+    (conv1): Conv1d(3, 64, kernel_size=(1,), stride=(1,))
+    (conv2): Conv1d(64, 128, kernel_size=(1,), stride=(1,))
+    (conv3): Conv1d(128, 256, kernel_size=(1,), stride=(1,))
+    (conv4): Conv1d(256, 1024, kernel_size=(1,), stride=(1,))
+    (bn1): BatchNorm1d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (bn2): BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (bn3): BatchNorm1d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (bn4): BatchNorm1d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (fc1): Linear(in_features=1024, out_features=1024, bias=True)
+    (bn5): BatchNorm1d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (fc2): Linear(in_features=1024, out_features=128, bias=True)
+    (bn6): BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  )
+  (sample_encoder): Sampler(
+    (mlp1): Linear(in_features=128, out_features=256, bias=True)
+    (mlp2mu): Linear(in_features=256, out_features=128, bias=True)
+    (mlp2var): Linear(in_features=256, out_features=128, bias=True)
+  )
+  (sample_decoder): SampleDecoder(
+    (mlp1): Linear(in_features=128, out_features=256, bias=True)
+    (mlp2): Linear(in_features=256, out_features=128, bias=True)
+  )
+  (decoder): FCDecoder(
+    (mlp1): Linear(in_features=128, out_features=1024, bias=True)
+    (mlp2): Linear(in_features=1024, out_features=1024, bias=True)
+    (mlp3): Linear(in_features=1024, out_features=6144, bias=True)
+  )
+)
+
+training run exp-model_v1-fc-cd-vae
+     Time    Epoch     Dataset    Iteration    Progress(%)       LR    CDLoss    KLDivLoss   TotalLoss

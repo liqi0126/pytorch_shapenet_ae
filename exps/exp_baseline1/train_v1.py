@@ -56,7 +56,7 @@ def train(conf):
 
     # create logs
     if not conf.no_console_log:
-        header = '     Time    Epoch     Dataset    Iteration    Progress(%)       LR    Loss'
+        header = '     Time    Epoch     Dataset    Iteration    Progress(%)       LR    CDLoss    KLDivLoss   TotalLoss'
     if not conf.no_tb_log:
         # https://github.com/lanpa/tensorboard-pytorch
         from tensorboardX import SummaryWriter
@@ -160,16 +160,21 @@ def forward(batch, data_features, network, conf, \
     batch_size = input_pcs.shape[0]
 
     # forward through the network
-    output_pcs, pc_feats = network(input_pcs)     # B x N x 3, B x P
+    output_pcs, pc_feats, ret_list = network(input_pcs)     # B x N x 3, B x P
     
     # for each type of loss, compute losses per data
     recon_loss_per_data = network.get_loss(input_pcs, output_pcs)
+
+    kldiv_loss_per_data = torch.zeros_like(recon_loss_per_data)
+    if conf.probabilistic:
+        kldiv_loss_per_data = ret_list['kldiv_loss']
     
     # for each type of loss, compute avg loss per batch
     recon_loss = recon_loss_per_data.mean()
+    kldiv_loss = kldiv_loss_per_data.mean()
 
     # compute total loss
-    total_loss = recon_loss
+    total_loss = recon_loss + conf.kldiv_loss_weight * kldiv_loss
 
     # display information
     data_split = 'train'
@@ -186,12 +191,16 @@ def forward(batch, data_features, network, conf, \
                 f'''{batch_ind:>5.0f}/{num_batch:<5.0f} '''
                 f'''{100. * (1+batch_ind+num_batch*epoch) / (num_batch*conf.epochs):>9.1f}%      '''
                 f'''{lr:>5.2E} '''
-                f'''{recon_loss.item():>10.5f}''')
+                f'''{recon_loss.item():>10.5f}'''
+                f'''{kldiv_loss.item():>10.5f}'''
+                f'''{total_loss.item():>10.5f}''')
             conf.flog.flush()
 
         # log to tensorboard
         if log_tb and tb_writer is not None:
             tb_writer.add_scalar('recon_loss', recon_loss.item(), step)
+            tb_writer.add_scalar('kldiv_loss', kldiv_loss.item(), step)
+            tb_writer.add_scalar('total_loss', total_loss.item(), step)
             tb_writer.add_scalar('lr', lr, step)
 
         # gen visu
@@ -223,6 +232,7 @@ def forward(batch, data_features, network, conf, \
                     with open(os.path.join(info_dir, fn.replace('.png', '.txt')), 'w') as fout:
                         fout.write('shape_id: %s\n' % batch[data_features.index('shape_id')][i])
                         fout.write('recon_loss: %f\n' % recon_loss_per_data[i].item())
+                        fout.write('kldiv_loss: %f\n' % kldiv_loss_per_data[i].item())
                 
             if batch_ind == conf.num_batch_every_visu - 1:
                 # visu html
@@ -256,6 +266,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_point', type=int, default=2048)
     parser.add_argument('--decoder_type', type=str, default='fc')
     parser.add_argument('--loss_type', type=str, default='cd')
+    parser.add_argument('--kldiv_loss_weight', type=float, default=1e-4)
+    parser.add_argument('--probabilistic', action='store_true', default=False, help='probabilistic [default: False]')
 
     # training parameters
     parser.add_argument('--epochs', type=int, default=1000)
