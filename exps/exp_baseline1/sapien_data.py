@@ -102,7 +102,7 @@ def get_pc(model, npoints):
     return pc
 
 
-class PartNetShapeDataset(data.Dataset):
+class PartNetSapienDataset(data.Dataset):
     def __init__(self, scene, sapien_path):
         self.scene = scene
         self.sapien_path = sapien_path
@@ -149,6 +149,6 @@ if __name__ == '__main__':
     scene.set_timestep(1 / 200)
 
     SAPIEN_PATH = '/Users/liqi17thu/data/partnet_mobility_v0'
-    dataset = PartNetShapeDataset(scene, SAPIEN_PATH)
+    dataset = PartNetSapienDataset(scene, SAPIEN_PATH)
     pc = dataset.__getitem__(0)
     print(pc.shape)
