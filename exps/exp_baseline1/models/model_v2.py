@@ -162,7 +162,6 @@ class FCUpconvDecoder(nn.Module):
         upconv_net = torch.relu(self.deconv3(upconv_net))
         upconv_net = torch.relu(self.deconv4(upconv_net))
         upconv_net = self.deconv5(upconv_net).view(batch_size, self.dim, -1).permute(0, 2, 1)
-        
         net = torch.cat([fc_net, upconv_net], dim=1)
 
         return net
@@ -202,7 +201,7 @@ class Network(nn.Module):
         feats = self.sample_decoder(feats)
         output_pcs = self.decoder(feats)
         return output_pcs, feats, ret_list
-    
+
     def get_loss(self, pc1, pc2):
         if self.conf.loss_type == 'cd':
             dist1, dist2 = chamfer_distance(pc1, pc2, transpose=False)
@@ -251,11 +250,13 @@ class CasualNetwork(nn.Module):
         src_feats = self.encoder(src_pcs.repeat(1, 1, 2))
         dst_feats = self.encoder(dst_pcs.repeat(1, 1, 2))
         feats = torch.cat((src_feats, dst_feats), -1)
-        feats = self.sample_encoder(feats)
-        ret_list = dict()
-        feats = self.sample_decoder(feats)
-        output_pcs = self.decoder(feats)
-        return output_pcs, feats, ret_list
+        src_feats = self.src_sample_encoder(feats)
+        src_feats = self.src_sample_decoder(src_feats)
+        src_pred = self.src_decoder(src_feats)
+        dst_feats = self.dst_sample_encoder(feats)
+        dst_feats = self.dst_sample_decoder(feats)
+        dst_pred = self.dst_decoder(dst_feats)
+        return src_pred, dst_pred
 
     def get_loss(self, src_pred, src_gt, tgt_pred, tgt_gt):
         return self.loss_fn(src_pred, src_gt) + self.loss_fn(tgt_pred, tgt_gt)

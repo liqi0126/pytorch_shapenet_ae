@@ -38,7 +38,7 @@ class PartNetSapienDataset(data.Dataset):
         data_feats = ()
 
         sapien_id = self.sapien_indices[index]
-        pcd = PyntCloud.from_file(f"{sapien_id}.xyz")
+        pcd = PyntCloud.from_file(f"data/{sapien_id}.xyz")
         pc = pcd.xyz
         pc = torch.from_numpy(pc).float().unsqueeze(0)
         obj_idx = self.obj_indices[index]

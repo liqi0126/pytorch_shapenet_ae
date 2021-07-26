@@ -30,12 +30,12 @@ logger.setLevel(logging.ERROR)
 def train(conf):
     # create training and validation datasets and data loaders
     data_features = ['pc', 'shape_id']
-    
+
     train_dataset = PartNetSapienDataset(train=True)
     utils.printout(conf.flog, str(train_dataset))
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=conf.batch_size, shuffle=True, pin_memory=True, \
             num_workers=conf.num_workers, drop_last=True, collate_fn=utils.collate_feats, worker_init_fn=utils.worker_init_fn)
-    
+
     val_dataset = PartNetSapienDataset(train=False)
     utils.printout(conf.flog, str(val_dataset))
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=conf.batch_size, shuffle=False, pin_memory=True, \
@@ -149,7 +149,7 @@ def train(conf):
                     __ = forward(batch=val_batch, data_features=data_features, network=network, conf=conf, is_val=True, \
                             step=val_step, epoch=epoch, batch_ind=val_batch_ind, num_batch=val_num_batch, start_time=start_time, \
                             log_console=log_console, log_tb=not conf.no_tb_log, tb_writer=val_writer, lr=network_opt.param_groups[0]['lr'])
-           
+
     # save the final models
     utils.printout(conf.flog, 'Saving final checkpoint ...... ')
     utils.save_checkpoint(models=models, model_names=model_names, dirname=os.path.join(conf.exp_dir, 'ckpts'), \
@@ -166,14 +166,14 @@ def forward(batch, data_features, network, conf, \
 
     # forward through the network
     output_pcs, pc_feats, ret_list = network(input_pcs)     # B x N x 3, B x P
-    
+
     # for each type of loss, compute losses per data
     recon_loss_per_data = network.get_loss(input_pcs, output_pcs)
 
     kldiv_loss_per_data = torch.zeros_like(recon_loss_per_data)
     if conf.probabilistic:
         kldiv_loss_per_data = ret_list['kldiv_loss']
-    
+
     # for each type of loss, compute avg loss per batch
     recon_loss = recon_loss_per_data.mean()
     kldiv_loss = kldiv_loss_per_data.mean()
@@ -233,12 +233,13 @@ def forward(batch, data_features, network, conf, \
                     # render_pts(os.path.join(output_pcs_dir, fn), output_pcs[i].cpu().numpy())
                     # or to render using matplotlib
                     utils.render_pc(os.path.join(input_pcs_dir, fn), input_pcs[i].cpu().numpy())
-                    
+                    utils.render_pc(os.path.join(output_pcs_dir, fn), output_pcs[i].cpu().numpy())
+
                     with open(os.path.join(info_dir, fn.replace('.png', '.txt')), 'w') as fout:
                         fout.write('shape_id: %s\n' % batch[data_features.index('shape_id')][i])
                         fout.write('recon_loss: %f\n' % recon_loss_per_data[i].item())
                         fout.write('kldiv_loss: %f\n' % kldiv_loss_per_data[i].item())
-                
+
             if batch_ind == conf.num_batch_every_visu - 1:
                 # visu html
                 utils.printout(conf.flog, 'Generating html visualization ...')
@@ -254,7 +255,7 @@ if __name__ == '__main__':
 
     ### get parameters
     parser = ArgumentParser()
-    
+
     # main parameters (required)
     parser.add_argument('--exp_suffix', type=str, help='exp suffix')
     parser.add_argument('--model_version', type=str, help='model def file')
@@ -304,7 +305,7 @@ if __name__ == '__main__':
     ### prepare before training
     # make exp_name
     conf.exp_name = f'exp-{conf.model_version}-{conf.exp_suffix}'
-    
+
     # mkdir exp_dir; ask for overwrite if necessary
     conf.exp_dir = os.path.join(conf.log_dir, conf.exp_name)
     if os.path.exists(conf.exp_dir):
@@ -338,7 +339,7 @@ if __name__ == '__main__':
 
     # backup python files used for this training
     os.system('cp data.py models/%s.py %s %s' % (conf.model_version, __file__, conf.exp_dir))
-     
+
     # set training device
     device = torch.device(conf.device)
     utils.printout(flog, f'Using device: {conf.device}\n')
