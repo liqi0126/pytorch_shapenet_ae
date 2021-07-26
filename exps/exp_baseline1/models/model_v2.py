@@ -112,13 +112,13 @@ class SampleDecoder(nn.Module):
 
 class FCDecoder(nn.Module):
 
-    def __init__(self, num_point=2048):
+    def __init__(self, num_point=2048, dim=3):
         super(FCDecoder, self).__init__()
         print('Using FCDecoder-NoBN!')
-
+        self.dim = dim
         self.mlp1 = nn.Linear(128, 1024)
         self.mlp2 = nn.Linear(1024, 1024)
-        self.mlp3 = nn.Linear(1024, num_point*3)
+        self.mlp3 = nn.Linear(1024, num_point*dim)
 
     def forward(self, feat):
         batch_size = feat.shape[0]
@@ -126,26 +126,27 @@ class FCDecoder(nn.Module):
         net = feat
         net = torch.relu(self.mlp1(net))
         net = torch.relu(self.mlp2(net))
-        net = self.mlp3(net).view(batch_size, -1, 3)
+        net = self.mlp3(net).view(batch_size, -1, self.dim)
 
         return net
 
 
 class FCUpconvDecoder(nn.Module):
 
-    def __init__(self, num_point=2048):
+    def __init__(self, num_point=2048, dim=3):
         super(FCUpconvDecoder, self).__init__()
         print('Using FCUpconvDecoder-NoBN!')
+        self.dim = dim
 
         self.mlp1 = nn.Linear(128, 1024)
         self.mlp2 = nn.Linear(1024, 1024)
-        self.mlp3 = nn.Linear(1024, 1024*3)
+        self.mlp3 = nn.Linear(1024, 1024*dim)
 
         self.deconv1 = nn.ConvTranspose2d(1024, 1024, 2, 1)
         self.deconv2 = nn.ConvTranspose2d(1024, 512, 3, 1)
         self.deconv3 = nn.ConvTranspose2d(512, 256, 4, 2)
         self.deconv4 = nn.ConvTranspose2d(256, 128, 5, 3)
-        self.deconv5 = nn.ConvTranspose2d(128, 3, 1, 1)
+        self.deconv5 = nn.ConvTranspose2d(128, dim, 1, 1)
 
     def forward(self, feat):
         batch_size = feat.shape[0]
@@ -153,14 +154,14 @@ class FCUpconvDecoder(nn.Module):
         fc_net = feat
         fc_net = torch.relu(self.mlp1(fc_net))
         fc_net = torch.relu(self.mlp2(fc_net))
-        fc_net = self.mlp3(fc_net).view(batch_size, -1, 3)
+        fc_net = self.mlp3(fc_net).view(batch_size, -1, self.dim)
 
         upconv_net = feat.view(batch_size, -1, 1, 1)
         upconv_net = torch.relu(self.deconv1(upconv_net))
         upconv_net = torch.relu(self.deconv2(upconv_net))
         upconv_net = torch.relu(self.deconv3(upconv_net))
         upconv_net = torch.relu(self.deconv4(upconv_net))
-        upconv_net = self.deconv5(upconv_net).view(batch_size, 3, -1).permute(0, 2, 1)
+        upconv_net = self.deconv5(upconv_net).view(batch_size, self.dim, -1).permute(0, 2, 1)
         
         net = torch.cat([fc_net, upconv_net], dim=1)
 
@@ -214,4 +215,47 @@ class Network(nn.Module):
             raise ValueError('ERROR: unknown loss_type %s!' % loss_type)
 
         return loss_per_data
-    
+
+
+class CasualNetwork(nn.Module):
+    def __init__(self, conf):
+        super(CasualNetwork, self).__init__()
+        self.conf = conf
+
+        self.encoder = PointNet2({'feat_dim': 128})
+
+        self.src_sample_encoder = Sampler(256, 256, probabilistic=conf.probabilistic)
+        self.src_sample_decoder = SampleDecoder(256, 256)
+
+        self.dst_sample_encoder = Sampler(256, 256, probabilistic=conf.probabilistic)
+        self.dst_sample_decoder = SampleDecoder(256, 256)
+
+        if conf.decoder_type == 'fc':
+            self.src_decoder = FCDecoder(num_point=conf.num_point, dim=1)
+            self.dst_decoder = FCDecoder(num_point=conf.num_point, dim=1)
+
+        elif conf.decoder_type == 'fc_upconv':
+            self.src_decoder = FCUpconvDecoder(num_point=conf.num_point, dim=1)
+            self.dst_decoder = FCUpconvDecoder(num_point=conf.num_point, dim=1)
+        else:
+            raise ValueError('ERROR: unknown decoder_type %s!' % decoder_type)
+
+        self.loss_fn = nn.BCEWithLogitsLoss()
+
+    """
+        Input: B x N x 3
+        Output: B x N x 3, B x F
+    """
+
+    def forward(self, src_pcs, dst_pcs):
+        src_feats = self.encoder(src_pcs.repeat(1, 1, 2))
+        dst_feats = self.encoder(dst_pcs.repeat(1, 1, 2))
+        feats = torch.cat((src_feats, dst_feats), -1)
+        feats = self.sample_encoder(feats)
+        ret_list = dict()
+        feats = self.sample_decoder(feats)
+        output_pcs = self.decoder(feats)
+        return output_pcs, feats, ret_list
+
+    def get_loss(self, src_pred, src_gt, tgt_pred, tgt_gt):
+        return self.loss_fn(src_pred, src_gt) + self.loss_fn(tgt_pred, tgt_gt)
