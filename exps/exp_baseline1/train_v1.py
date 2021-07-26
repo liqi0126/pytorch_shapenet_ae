@@ -22,6 +22,10 @@ from geometry_utils import render_pts
 import sapien.core as sapien
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+import logging
+logger = logging.getLogger("trimesh")
+logger.setLevel(logging.ERROR)
+
 
 def train(conf):
     engine = sapien.Engine(0, 0.001, 0.005)
@@ -35,7 +39,8 @@ def train(conf):
     scene = engine.create_scene(config=config)
     scene.set_timestep(1 / 200)
 
-    SAPIEN_PATH = '/Users/liqi17thu/data/partnet_mobility_v0'
+    # SAPIEN_PATH = '/Users/liqi17thu/data/partnet_mobility_v0'
+    SAPIEN_PATH = '/public/MARS/datasets/partnet_mobility_v0'
 
     # create training and validation datasets and data loaders
     data_features = ['pc', 'shape_id']
@@ -238,10 +243,10 @@ def forward(batch, data_features, network, conf, \
                 for i in range(batch_size):
                     fn = 'data-%03d.png' % (batch_ind * batch_size + i)
 
-                    render_pts(os.path.join(input_pcs_dir, fn), input_pcs[i].cpu().numpy())
-                    render_pts(os.path.join(output_pcs_dir, fn), output_pcs[i].cpu().numpy())
+                    # render_pts(os.path.join(input_pcs_dir, fn), input_pcs[i].cpu().numpy())
+                    # render_pts(os.path.join(output_pcs_dir, fn), output_pcs[i].cpu().numpy())
                     # or to render using matplotlib
-                    #utils.render_pc(os.path.join(input_pcs_dir, fn), input_pcs[i].cpu().numpy())
+                    utils.render_pc(os.path.join(input_pcs_dir, fn), input_pcs[i].cpu().numpy())
                     
                     with open(os.path.join(info_dir, fn.replace('.png', '.txt')), 'w') as fout:
                         fout.write('shape_id: %s\n' % batch[data_features.index('shape_id')][i])
@@ -260,6 +265,7 @@ def forward(batch, data_features, network, conf, \
 
 
 if __name__ == '__main__':
+
     ### get parameters
     parser = ArgumentParser()
     
@@ -285,7 +291,7 @@ if __name__ == '__main__':
 
     # training parameters
     parser.add_argument('--epochs', type=int, default=1000)
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--num_workers', type=int, default=5)
     parser.add_argument('--lr', type=float, default=.001)
     parser.add_argument('--weight_decay', type=float, default=1e-5)

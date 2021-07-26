@@ -2,6 +2,7 @@ import torch.utils.data as data
 from sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
 import numpy as np
 import trimesh
+import torch
 
 from sapien.core import Pose
 
@@ -108,6 +109,7 @@ class PartNetSapienDataset(data.Dataset):
         self.sapien_path = sapien_path
         self.OBJ_SET = set()
         self.sapien_indices = []
+        self.obj_indices = []
 
         for OBJ in NO_CASUAL:
             self.OBJ_SET.add(OBJ)
@@ -121,15 +123,22 @@ class PartNetSapienDataset(data.Dataset):
 
         for OBJ in self.OBJ_SET:
             self.sapien_indices += OBJ.sapien_id
+            self.obj_indices += [OBJ.idx] * len(OBJ.sapien_id)
 
     def __len__(self):
         return len(self.sapien_indices)
 
     def __getitem__(self, index):
+        data_feats = ()
+        
         sapien_id = self.sapien_indices[index]
         model = add_model(self.scene, sapien_id, self.sapien_path)
-        pc = get_global_mesh(model, 2048)
-        return pc
+        pc = get_pc(model, 2048)
+        pc = torch.from_numpy(pc).float().unsqueeze(0)
+        obj_idx = self.obj_indices[index]
+        data_feats += (pc,)
+        data_feats += (obj_idx, )
+        return data_feats
 
 
 if __name__ == '__main__':
@@ -148,7 +157,7 @@ if __name__ == '__main__':
     scene = engine.create_scene(config=config)
     scene.set_timestep(1 / 200)
 
-    SAPIEN_PATH = '/Users/liqi17thu/data/partnet_mobility_v0'
+    SAPIEN_PATH = '/public/MARS/datasets/partnet_mobility_v0' 
     dataset = PartNetSapienDataset(scene, SAPIEN_PATH)
     pc = dataset.__getitem__(0)
     print(pc.shape)

@@ -3,6 +3,7 @@ import os
 import scipy.misc as misc
 import h5py
 import json
+import imageio
 from subprocess import call
 import progressbar
 from collections import deque
@@ -406,7 +407,7 @@ def render_pts(out, pts, delete_img=False, point_size=6, point_color='FF0000FF')
     cmd = 'RenderShape %s %s 600 600 -p %d -c %s > /dev/null' % (tmp_pts, out, point_size, point_color)
     call(cmd, shell=True)
 
-    img = np.array(misc.imread(out), dtype=np.float32)
+    img = np.array(imageio.imread(out), dtype=np.float32)
 
     cmd = 'rm -rf %s' % tmp_pts
     call(cmd, shell=True)
