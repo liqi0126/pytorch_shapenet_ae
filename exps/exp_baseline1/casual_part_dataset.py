@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 from torch.utils.data import Dataset
-from gym_sapien.envs.sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
+from sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
 
 
 class CasualPartDataset(Dataset):

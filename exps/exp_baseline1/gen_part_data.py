@@ -4,17 +4,15 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from gym_sapien.envs.sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
-from gym_sapien.envs.util import add_model, get_pc, pc_normalize
+from sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
+from sapien_utils import add_model, get_pc, pc_normalize
+import sapien.core as sapien
 
 
 def main():
-    import sapien.core as sapien
-
     sapien_path = '/Users/liqi17thu/data/partnet_mobility_v0'
 
     engine = sapien.Engine(0, 0.001, 0.005)
-
 
     config = sapien.SceneConfig()
     config.gravity = [0, 0, 0]
