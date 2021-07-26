@@ -15,7 +15,7 @@ import torch.utils.data
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 from subprocess import call
-from sapien_data import PartNetSapienDataset
+from casual_part_dataset import CasualPartDataset
 import utils
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,14 +28,14 @@ logger.setLevel(logging.ERROR)
 
 def train(conf):
     # create training and validation datasets and data loaders
-    train_dataset = PartNetSapienDataset(train=True)
+    train_dataset = CasualPartDataset()
     utils.printout(conf.flog, str(train_dataset))
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=conf.batch_size, shuffle=True,
                                                    pin_memory=True, \
                                                    num_workers=conf.num_workers, drop_last=True,
                                                    collate_fn=utils.collate_feats, worker_init_fn=utils.worker_init_fn)
 
-    val_dataset = PartNetSapienDataset(train=False)
+    val_dataset = CasualPartDataset(no_casual_num=1, self_casual_num=1, binary_casual_num=1)
     utils.printout(conf.flog, str(val_dataset))
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=conf.batch_size, shuffle=False,
                                                  pin_memory=True, \
