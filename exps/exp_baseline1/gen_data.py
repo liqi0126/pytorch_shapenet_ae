@@ -1,5 +1,6 @@
 from sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
-import open3d as o3d
+from pyntcloud import PyntCloud
+import pandas as pd
 import numpy as np
 
 def add_model(scene, idx, sapien_path, pose=Pose(), scale=1, fix_base=False, name='', stiffness=0, damping=0):
@@ -137,9 +138,9 @@ def main():
     for sapien_id in sapien_indices:
         model = add_model(scene, sapien_id, sapien_path)
         pc = get_pc(model, 2048)
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(pc)
-        o3d.io.write_point_cloud(f"data/{sapien_id}.xyz", pcd)
+        cloud = PyntCloud(pd.DataFrame(pc, columns=["x", "y", "z"]))
+        cloud.to_file(f"data/{sapien_id}.xyz")
+
 
 if __name__ == '__main__':
     main()
