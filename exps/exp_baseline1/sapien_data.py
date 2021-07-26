@@ -1,11 +1,9 @@
 import torch.utils.data as data
 from sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
 import numpy as np
-import trimesh
-import open3d as o3d
-import torch
-from sapien.core import Pose
+from pyntcloud import PyntCloud
 
+import torch
 
 class PartNetSapienDataset(data.Dataset):
     def __init__(self, train):
@@ -40,8 +38,9 @@ class PartNetSapienDataset(data.Dataset):
         data_feats = ()
 
         sapien_id = self.sapien_indices[index]
-        pcd = o3d.io.read_point_cloud(f"data/{sapien_id}.xyz")
-        pc = np.asarray(pcd.points)
+        pcd = PyntCloud.from_file(f"{sapien_id}.xyz")
+        pc = pcd.xyz
+        pc = torch.from_numpy(pc).float().unsqueeze(0)
         obj_idx = self.obj_indices[index]
         data_feats += (pc,)
         data_feats += (obj_idx, )
