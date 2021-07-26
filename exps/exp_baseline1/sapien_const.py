@@ -26,7 +26,7 @@ class Toaster(InDoorObject):
     idx = 1
     # sapien_id = [103482, 103485, 103477, 103483, 103502, 103558, 103560, 103556, 103561, 103559, 103545, 103465, 103498,
     #            103486, 103475, 103473, 103555, 103553, 103514, 103547, 103549, 103524, 103548, 103469, 103466]
-    sapien_id = [103482, 103485, 103477, 103483, 103502, 103556, 103561, 103559, 103465, 103498, 103473, 103555, 103553, 103514, 103547, 103549, 103524, 103548, 103469]
+    sapien_id = [103482, 103485, 103477, 103483, 103502, 103556, 103561, 103559, 103465, 103498, 103473, 103555, 103553, 103514, 103547, 103549, 103548, 103469]
     trigger = [('slider', 'prismatic', 'all')]
     responser = 'all'
 
@@ -107,7 +107,7 @@ class Switch(InDoorObject):
     #           100901, 100880, 100889, 100845, 100888]
     sapien_id = [102844, 102843, 100980, 100974, 102872, 100920, 102817, 100911, 102810, 100981, 100910, 100928, 100919, 100904, 100368, 100966, 100959, 102860, 102856, 100957, 100366, 100968, 100933, 100934, 100902, 100905, 100367, 100883, 100848, 100870, 100846, 100847, 100885, 100871, 100882, 100849, 100850, 100866, 100924, 100915, 100979, 100970, 100948, 102812, 100925, 100976, 100971, 100978, 102864, 100965, 100953, 100954, 100900, 102839, 100907, 100955, 100952, 100963, 100908, 100937, 100930, 100906, 100901, 100880, 100889, 100845, 100888]
 
-    trigger = [('toggle_button', 'revolute', 'all'), ('lever', 'revolute', 'all'), ('slider', 'prismatic', 'all'), ('knob', 'revolute', 'all'), ('button', 'prismatic', 'all')]
+    trigger = [('toggle_button', 'revolute', 'all'), ('lever', 'revolute', 'all'), ('slider', 'prismatic', 'all'), ('knob', 'revolute', 'all'), ('button', 'prismatic', 'all'), ('switch', 'revolute', 'all')]
 
 
 
@@ -391,7 +391,7 @@ class Doorset(InDoorObject):
     # sapien_id = [9065, 8983, 9127, 8867, 8893, 9117, 9128, 9168, 9070, 9280, 8997, 9041, 8930, 9281, 9288, 8936, 9032,
     #            9035, 9003, 8919, 9263, 8897, 9148, 9388, 9386, 9107, 9393, 8877, 9164, 9016, 9410, 9277, 8994, 8903,
     #            8961, 8966]
-    sapien_id = [9065, 9127, 8867, 8893, 8930, 9281, 9288, 8936, 9032, 9035, 9003, 9263, 8897, 9393, 9164, 9410, 9277, 8994, 8903]
+    sapien_id = [9065, 9127, 8867, 8893, 8930, 9281, 9288, 8936, 9035, 9003, 9263, 8897, 9393, 9164, 9410, 9277, 8994, 8903]
     trigger = [('fixed_part', 'revolute', 'single'), ('movable_part', 'revolute', 'single')]
     responser = ['surface_board', 'glass', 'hinge']
 
@@ -401,7 +401,7 @@ class DoorsetNoTrigger(InDoorObject):
     # sapien_id = [9065, 8983, 9127, 8867, 8893, 9117, 9128, 9168, 9070, 9280, 8997, 9041, 8930, 9281, 9288, 8936, 9032,
     #            9035, 9003, 8919, 9263, 8897, 9148, 9388, 9386, 9107, 9393, 8877, 9164, 9016, 9410, 9277, 8994, 8903,
     #            8961, 8966]
-    sapien_id = [8983, 9128, 9070, 9041, 8919, 9148, 9386, 8877, 9016]
+    sapien_id = [8983, 9128, 9070, 9041, 8919, 9148, 9386, 9032, 8877, 9016]
     trigger = None
     responser = ['surface_board', 'glass', 'hinge']
 
@@ -594,6 +594,7 @@ import sapien.asset as asset
 import sapien.core as sapien
 
 from sapien.core import Pose
+from .util import get_pc
 
 SAPIEN_PATH = '/Users/liqi17thu/data/partnet_mobility_v0'
 # SAPIEN_PATH = '/mnt/datasets/partnet_mobility_v0'
@@ -627,14 +628,34 @@ def get_model(loader, idx, pose=Pose(), scale=0.5, fix_base=True, name='', stiff
     return model
 
 
-def visualize(model, base_body, src, tgt):
-    base_body_pc = get_global_mesh(model, 2048, base_body)
+def visualize_key(model, key):
+    pc, key = get_pc(model, key, 2048)
+
+    base_body_color = np.array([[1., 1., 1., 1.]])
+    key_color = np.array([[135/255., 205/255., 92/255., 1.]])
+
+    color = np.zeros((pc.shape[0], 4))
+    color[key] = key_color
+    color[~key] = base_body_color
+
+    v = pptk.viewer(pc, color)
+    v.set(point_size=0.005)
+    v.set(phi=6.89285231)
+    v.set(r=2.82503915)
+    v.set(theta=0.91104609)
+    v.set(lookat=[0.00296851, 0.01331535, -0.47486299])
+    return v
+
+
+def visualize(model, src, tgt):
+    base_body = src + tgt
+    base_body_pc = get_pc(model, base_body, False, 1024)
     if base_body_pc is None:
         base_body_pc = np.zeros((1, 3))
-    src_pc = get_global_mesh(model, 2048, src)
+    src_pc = get_pc(model, src, True, 1024)
     if src_pc is None:
         src_pc = np.zeros((1, 3))
-    tgt_pc = get_global_mesh(model, 2048, tgt)
+    tgt_pc = get_pc(model, tgt, True, 1024)
     if tgt_pc is None:
         tgt_pc = np.zeros((1, 3))
 
@@ -647,6 +668,7 @@ def visualize(model, base_body, src, tgt):
     tgt_color = tgt_color.repeat(tgt_pc.shape[0], axis=0)
 
     pc = np.r_[base_body_pc, src_pc, tgt_pc]
+    pc = pc_normalize(pc)
     color = np.r_[base_body_color, src_color, tgt_color]
     v = pptk.viewer(pc, color)
     v.set(point_size=0.005)
@@ -655,6 +677,8 @@ def visualize(model, base_body, src, tgt):
     v.set(theta=0.91104609)
     v.set(lookat=[0.00296851, 0.01331535, -0.47486299])
     return v
+
+
 
 def main():
     token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImxpcWkxN0BtYWlscy50c2luZ2h1YS5lZHUuY24iLCJpcCI6IjE3Mi4yMi4wLjEiLCJwcml2aWxlZ2UiOjEsImlhdCI6MTYyNTQ1NjMzNiwiZXhwIjoxNjU2OTkyMzM2fQ.L8bTjKLmMr4ZPGUzQwS8dAfJEQokfbQwflZfTstm7cY'
@@ -681,17 +705,16 @@ def main():
     loader.fix_root_link = True
     loader.scale = 0.5
 
-    base_body = None
-    src = []
-    tgt = ['fan']
+    src = ['switch', 'handle', 'button']
+    tgt = []
 
-    for i, idx in enumerate(Fan.sapien_id):
+    for i, idx in enumerate(Safe.sapien_id):
         model = get_model(loader, idx)
-        # v = visualize(model, base_body, src, tgt)
+        v = visualize(model, src, tgt)
         print(model.get_links())
         print(i, idx)
-        # import ipdb; ipdb.set_trace()
-        # v.close()
+        import ipdb; ipdb.set_trace()
+        v.close()
 
 
 if __name__ == '__main__':
