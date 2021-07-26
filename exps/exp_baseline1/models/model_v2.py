@@ -161,7 +161,7 @@ class FCUpconvDecoder(nn.Module):
         upconv_net = torch.relu(self.deconv3(upconv_net))
         upconv_net = torch.relu(self.deconv4(upconv_net))
         upconv_net = self.deconv5(upconv_net).view(batch_size, 3, -1).permute(0, 2, 1)
-        
+
         net = torch.cat([fc_net, upconv_net], dim=1)
 
         return net
@@ -201,7 +201,7 @@ class Network(nn.Module):
         feats = self.sample_decoder(feats)
         output_pcs = self.decoder(feats)
         return output_pcs, feats, ret_list
-    
+
     def get_loss(self, pc1, pc2):
         if self.conf.loss_type == 'cd':
             dist1, dist2 = chamfer_distance(pc1, pc2, transpose=False)
@@ -214,4 +214,4 @@ class Network(nn.Module):
             raise ValueError('ERROR: unknown loss_type %s!' % loss_type)
 
         return loss_per_data
-    
+

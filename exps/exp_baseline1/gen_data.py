@@ -2,6 +2,10 @@ from sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
 from pyntcloud import PyntCloud
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
+from sapien.core import Pose
+import trimesh
+
 
 def add_model(scene, idx, sapien_path, pose=Pose(), scale=1, fix_base=False, name='', stiffness=0, damping=0):
     loader = scene.create_urdf_loader()
@@ -102,7 +106,7 @@ def get_pc(model, npoints):
 def main():
     import sapien.core as sapien
 
-    sapien_path = '/Users/liqi17thu/data/partnet_mobility_v0'
+    sapien_path = '/public/MARS/datasets/partnet_mobility_v0'
 
     engine = sapien.Engine(0, 0.001, 0.005)
     renderer = None
@@ -135,7 +139,7 @@ def main():
         sapien_indices += OBJ.sapien_id
         obj_indices += [OBJ.idx] * len(OBJ.sapien_id)
 
-    for sapien_id in sapien_indices:
+    for sapien_id in tqdm(sapien_indices):
         model = add_model(scene, sapien_id, sapien_path)
         pc = get_pc(model, 2048)
         cloud = PyntCloud(pd.DataFrame(pc, columns=["x", "y", "z"]))
