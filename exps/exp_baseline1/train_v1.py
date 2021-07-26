@@ -28,29 +28,15 @@ logger.setLevel(logging.ERROR)
 
 
 def train(conf):
-    engine = sapien.Engine(0, 0.001, 0.005)
-
-    config = sapien.SceneConfig()
-    config.gravity = [0, 0, 0]
-    config.solver_iterations = 15
-    config.solver_velocity_iterations = 2
-    config.enable_pcm = False
-
-    scene = engine.create_scene(config=config)
-    scene.set_timestep(1 / 200)
-
-    # SAPIEN_PATH = '/Users/liqi17thu/data/partnet_mobility_v0'
-    SAPIEN_PATH = '/public/MARS/datasets/partnet_mobility_v0'
-
     # create training and validation datasets and data loaders
     data_features = ['pc', 'shape_id']
     
-    train_dataset = PartNetSapienDataset(scene, SAPIEN_PATH)
+    train_dataset = PartNetSapienDataset(train=True)
     utils.printout(conf.flog, str(train_dataset))
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=conf.batch_size, shuffle=True, pin_memory=True, \
             num_workers=conf.num_workers, drop_last=True, collate_fn=utils.collate_feats, worker_init_fn=utils.worker_init_fn)
     
-    val_dataset = PartNetSapienDataset(scene, SAPIEN_PATH)
+    val_dataset = PartNetSapienDataset(train=False)
     utils.printout(conf.flog, str(val_dataset))
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=conf.batch_size, shuffle=False, pin_memory=True, \
             num_workers=0, drop_last=True, collate_fn=utils.collate_feats, worker_init_fn=utils.worker_init_fn)
