@@ -4,15 +4,12 @@ import trimesh
 import pandas as pd
 
 import sapien.core as sapien
-import gym
-from gym import spaces
-from gym.utils import seeding
 from sapien_utils import  add_model, pc_normalize, get_pc
 # MODIFY THIS
 SAPIEN_PATH = '/Users/liqi17thu/data/partnet_mobility_v0'
 
 
-class InteractionEnv(gym.Env):
+class InteractionEnv(object):
     def __init__(self, engine, sapien_path, sapien_idx, keys, renderer=None, controller=None, npoints=2048):
         self.engine = engine
         self.sapien_path = sapien_path
@@ -72,21 +69,6 @@ class InteractionEnv(gym.Env):
             if joint.type != 'fixed' and joint.type != 'unknown':
                 joint_idx += 1
 
-        self.action_space = spaces.Tuple((
-            spaces.Discrete(2048),
-            spaces.Box(
-                low=np.array([-3] * 3),
-                high=np.array([3] * 3),
-                dtype=np.float32)
-        ))
-
-        self.observation_space = spaces.Box(
-            low=np.array((3*[-5] + 4*[-1])*6 + [-3, -3]),
-            high=np.array((3*[5] + 4*[1])*6 + [3, 3]),
-            dtype=np.float32
-        )
-
-        self.seed()
         self.reset()
 
 
@@ -102,10 +84,6 @@ class InteractionEnv(gym.Env):
             self.scene.step()
         return None
 
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
 
     def render(self, mode='human'):
         if self.controller:
@@ -153,9 +131,6 @@ def gen_interaction_pc(engine, sapien_path, renderer, controller, sapien_idx, ke
     return pc, key
 
 
-import argparse
-
-
 def main():
     engine = sapien.Engine(0, 0.001, 0.005)
     renderer = None
@@ -166,7 +141,6 @@ def main():
     pc, key = gen_interaction_pc(engine, SAPIEN_PATH, renderer, controller, sapien_idx, keys)
     df = pd.DataFrame({"x": pc[:, 0], "y": pc[:, 1], "z": pc[:, 2], "key": key})
     df.to_csv(f"{sapien_idx}.xyz")
-
 
 
 if __name__ == '__main__':
