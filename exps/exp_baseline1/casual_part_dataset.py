@@ -2,6 +2,7 @@ import random
 import numpy as np
 import pandas as pd
 
+import torch
 from torch.utils.data import Dataset
 from sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
 
@@ -17,17 +18,20 @@ class CasualPartDataset(Dataset):
         self.sapien_indices= []
         self.obj_groups = []
 
-        for i in range(np.random.randint(1, self.no_casual_num)):
+        # for i in range(np.random.randint(1, self.no_casual_num+1)):
+        for i in range(self.no_casual_num):
             OBJ = random.choice(NO_CASUAL)
             self.sapien_indices.append(random.choice(OBJ.sapien_id))
             self.obj_groups.append(OBJ)
 
-        for i in range(np.random.randint(1, self.self_casual_num)):
+        # for i in range(np.random.randint(1, self.self_casual_num+1)):
+        for i in range(self.self_casual_num):
             OBJ, _, _ = random.choice(SELF_CASUAL)
             self.sapien_indices.append(random.choice(OBJ.sapien_id))
             self.obj_groups.append(OBJ)
 
-        for i in range(np.random.randint(1, self.self_casual_num)):
+        # for i in range(np.random.randint(1, self.self_casual_num+1)):
+        for i in range(self.binary_casual_num):
             SRC, _, DST, _ = random.choice(BINARY_CASUAL)
             self.sapien_indices.append(random.choice(SRC.sapien_id))
             self.sapien_indices.append(random.choice(DST.sapien_id))
@@ -40,7 +44,7 @@ class CasualPartDataset(Dataset):
         return self.obj_num * self.obj_num
 
     def check_relation(self, obj_i, obj_j):
-        for OBJ in SELF_CASUAL:
+        for OBJ, _, _ in SELF_CASUAL:
             if obj_i == OBJ and obj_j == OBJ:
                 return True
 
@@ -68,11 +72,17 @@ class CasualPartDataset(Dataset):
         pc_j = df_j[['x', 'y', 'z']].to_numpy()
         key_i = df_i[['key']].to_numpy()
         key_j = df_j[['key']].to_numpy()
+        pc_i = torch.from_numpy(pc_i).float().unsqueeze(0)
+        pc_j = torch.from_numpy(pc_j).float().unsqueeze(0)
+        key_i = torch.from_numpy(key_i).float().squeeze().unsqueeze(0)
+        key_j = torch.from_numpy(key_j).float().squeeze().unsqueeze(0)
 
         return pc_i, pc_j, key_i, key_j
 
 
 if __name__ == '__main__':
     dataset = CasualPartDataset()
-    pc_i, pc_j, key_i, key_j = dataset.__getitem__(0)
-    import ipdb; ipdb.set_trace()
+    for i in range(dataset.__len__()):
+        pc_i, pc_j, key_i, key_j = dataset.__getitem__(i)
+        if (key_i != 0).any():
+            import ipdb; ipdb.set_trace()

@@ -223,11 +223,11 @@ class CasualNetwork(nn.Module):
 
         self.encoder = PointNet2({'feat_dim': 128})
 
-        self.src_sample_encoder = Sampler(256, 256, probabilistic=conf.probabilistic)
-        self.src_sample_decoder = SampleDecoder(256, 256)
+        self.src_sample_encoder = Sampler(128, 256, probabilistic=conf.probabilistic)
+        self.src_sample_decoder = SampleDecoder(128, 256)
 
-        self.dst_sample_encoder = Sampler(256, 256, probabilistic=conf.probabilistic)
-        self.dst_sample_decoder = SampleDecoder(256, 256)
+        self.dst_sample_encoder = Sampler(128, 256, probabilistic=conf.probabilistic)
+        self.dst_sample_decoder = SampleDecoder(128, 256)
 
         if conf.decoder_type == 'fc':
             self.src_decoder = FCDecoder(num_point=conf.num_point, dim=1)
@@ -239,7 +239,8 @@ class CasualNetwork(nn.Module):
         else:
             raise ValueError('ERROR: unknown decoder_type %s!' % decoder_type)
 
-        self.loss_fn = nn.BCEWithLogitsLoss()
+        self.loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(5.))
+        # self.loss_fn = nn.BCEWithLogitsLoss()
 
     """
         Input: B x N x 3
@@ -249,7 +250,7 @@ class CasualNetwork(nn.Module):
     def forward(self, src_pcs, dst_pcs):
         src_feats = self.encoder(src_pcs.repeat(1, 1, 2))
         dst_feats = self.encoder(dst_pcs.repeat(1, 1, 2))
-        feats = torch.cat((src_feats, dst_feats), -1)
+        feats = src_feats + dst_feats
         src_feats = self.src_sample_encoder(feats)
         src_feats = self.src_sample_decoder(src_feats)
         src_pred = self.src_decoder(src_feats)

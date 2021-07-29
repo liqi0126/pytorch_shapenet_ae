@@ -120,14 +120,15 @@ def get_surface_reweighting_batch(xyz, cube_num_point):
     out = out / (out.sum(dim=1).unsqueeze(dim=1) + 1e-12)
     return out
 
-def render_pc(out_fn, pc, figsize=(8, 8)):
+def render_pc(out_fn, pc, mask, figsize=(8, 8)):
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(1, 1, 1, projection='3d')
     ax.view_init(elev=20, azim=60)
     x = pc[:, 0]
     y = pc[:, 2]
     z = pc[:, 1]
-    ax.scatter(x, y, z, marker='.')
+    ax.scatter(x[mask], y[mask], z[mask], marker='.', color='#FF0000')
+    ax.scatter(x[~mask], y[~mask], z[~mask], marker='.', color='#00FF00')
     miv = np.min([np.min(x), np.min(y), np.min(z)])  # Multiply with 0.7 to squeeze free-space.
     mav = np.max([np.max(x), np.max(y), np.max(z)])
     ax.set_xlim(miv, mav)

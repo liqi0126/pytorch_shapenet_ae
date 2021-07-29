@@ -28,14 +28,14 @@ logger.setLevel(logging.ERROR)
 
 def train(conf):
     # create training and validation datasets and data loaders
-    train_dataset = CasualPartDataset()
+    train_dataset = CasualPartDataset(no_casual_num=0, self_casual_num=2, binary_casual_num=1)
     utils.printout(conf.flog, str(train_dataset))
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=conf.batch_size, shuffle=True,
                                                    pin_memory=True, \
                                                    num_workers=conf.num_workers, drop_last=True,
                                                    collate_fn=utils.collate_feats, worker_init_fn=utils.worker_init_fn)
 
-    val_dataset = CasualPartDataset(no_casual_num=1, self_casual_num=1, binary_casual_num=1)
+    val_dataset = CasualPartDataset(no_casual_num=0, self_casual_num=2, binary_casual_num=1)
     utils.printout(conf.flog, str(val_dataset))
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=conf.batch_size, shuffle=False,
                                                  pin_memory=True, \
@@ -157,6 +157,8 @@ def train(conf):
                                  start_time=start_time, \
                                  log_console=log_console, log_tb=not conf.no_tb_log, tb_writer=val_writer,
                                  lr=network_opt.param_groups[0]['lr'])
+        train_dataset.reset()
+        val_dataset.reset()
 
     # save the final models
     utils.printout(conf.flog, 'Saving final checkpoint ...... ')
@@ -170,15 +172,18 @@ def forward(batch, network, conf, \
             log_console=False, log_tb=False, tb_writer=None, lr=None):
     # prepare input
     src_pc, dst_pc, src_gt, dst_gt = batch
-    src_pc = src_pc.to(conf.device)
-    dst_pc = dst_pc.to(conf.device)
-    src_gt = src_gt.to(conf.device)
-    dst_gt = dst_gt.to(conf.device)
+    src_pc = torch.cat(src_pc, dim=0).to(conf.device)
+    dst_pc = torch.cat(dst_pc, dim=0).to(conf.device)
+    src_gt = torch.cat(src_gt, dim=0).to(conf.device)
+    dst_gt = torch.cat(dst_gt, dim=0).to(conf.device)
 
     batch_size = src_pc.shape[0]
 
     # forward through the network
     src_pred, dst_pred = network(src_pc, dst_pc)  # B x N x 3, B x P
+    src_pred = src_pred.squeeze()
+    dst_pred = dst_pred.squeeze()
+
 
     # for each type of loss, compute losses per data
     loss = network.get_loss(src_pred, src_gt, dst_pred, dst_gt)
@@ -225,12 +230,17 @@ def forward(batch, network, conf, \
                 utils.printout(conf.flog, 'Visualizing ...')
 
                 for i in range(batch_size):
-                    fn = 'data-%03d.png' % (batch_ind * batch_size + i)
+                    src_fn = 'data-src-%03d.png' % (batch_ind * batch_size + i)
+                    dst_fn = 'data-dst-%03d.png' % (batch_ind * batch_size + i)
 
                     # render_pts(os.path.join(input_pcs_dir, fn), input_pcs[i].cpu().numpy())
                     # render_pts(os.path.join(output_pcs_dir, fn), output_pcs[i].cpu().numpy())
                     # or to render using matplotlib
-                    utils.render_pc(os.path.join(input_pcs_dir, fn), input_pcs[i].cpu().numpy())
+                    utils.render_pc(os.path.join(input_pcs_dir, src_fn), src_pc[i].cpu().numpy(), src_gt[i].bool().cpu().numpy())
+                    utils.render_pc(os.path.join(input_pcs_dir, dst_fn), dst_pc[i].cpu().numpy(), dst_gt[i].bool().cpu().numpy())
+
+                    utils.render_pc(os.path.join(output_pcs_dir, src_fn), src_pc[i].cpu().numpy(), (src_pred[i] > 0).cpu().numpy())
+                    utils.render_pc(os.path.join(output_pcs_dir, dst_fn), dst_pc[i].cpu().numpy(), (dst_pred[i] > 0).cpu().numpy())
 
             if batch_ind == conf.num_batch_every_visu - 1:
                 # visu html
@@ -274,7 +284,7 @@ if __name__ == '__main__':
     # training parameters
     parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--num_workers', type=int, default=5)
+    parser.add_argument('--num_workers', type=int, default=10)
     parser.add_argument('--lr', type=float, default=.001)
     parser.add_argument('--weight_decay', type=float, default=1e-5)
     parser.add_argument('--lr_decay_by', type=float, default=0.9)

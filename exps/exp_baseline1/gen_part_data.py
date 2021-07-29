@@ -10,7 +10,7 @@ import sapien.core as sapien
 
 
 def main():
-    sapien_path = '/Users/liqi17thu/data/partnet_mobility_v0'
+    sapien_path = '/public/MARS/datasets/partnet_mobility_v0'
 
     engine = sapien.Engine(0, 0.001, 0.005)
 
