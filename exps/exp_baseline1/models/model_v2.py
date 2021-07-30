@@ -255,7 +255,7 @@ class CasualNetwork(nn.Module):
         src_feats = self.src_sample_decoder(src_feats)
         src_pred = self.src_decoder(src_feats)
         dst_feats = self.dst_sample_encoder(feats)
-        dst_feats = self.dst_sample_decoder(feats)
+        dst_feats = self.dst_sample_decoder(dst_feats)
         dst_pred = self.dst_decoder(dst_feats)
         return src_pred, dst_pred
 
