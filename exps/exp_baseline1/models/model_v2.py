@@ -222,6 +222,16 @@ class CasualNetwork(nn.Module):
         self.conf = conf
 
         self.encoder = PointNet2({'feat_dim': 128})
+        self.fc = nn.Sequential(
+            nn.Linear(128, 32),
+            nn.BatchNorm1d(32),
+            nn.ReLU(True),
+            nn.Linear(32, 8),
+            nn.BatchNorm1d(8),
+            nn.ReLU(True),
+            nn.Linear(8, 2),
+            nn.BatchNorm1d(2),
+        )
 
         self.src_sample_encoder = Sampler(128, 256, probabilistic=conf.probabilistic)
         self.src_sample_decoder = SampleDecoder(128, 256)
@@ -239,7 +249,8 @@ class CasualNetwork(nn.Module):
         else:
             raise ValueError('ERROR: unknown decoder_type %s!' % decoder_type)
 
-        self.loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(5.))
+        self.relation_loss_fn = nn.BCELoss()
+        self.full_loss_fn = nn.BCELoss()
         # self.loss_fn = nn.BCEWithLogitsLoss()
 
     """
@@ -257,7 +268,14 @@ class CasualNetwork(nn.Module):
         dst_feats = self.dst_sample_encoder(feats)
         dst_feats = self.dst_sample_decoder(dst_feats)
         dst_pred = self.dst_decoder(dst_feats)
-        return src_pred, dst_pred
 
-    def get_loss(self, src_pred, src_gt, tgt_pred, tgt_gt):
+        fc_output = self.fc(feats)
+        relation, full = torch.sigmoid(fc_output[:, 0]), torch.sigmoid(fc_output[:, 1])
+        return relation, full, src_pred, dst_pred
+
+    def get_loss(self, relation, full, src_pred, src_gt, tgt_pred, tgt_gt):
+        gt_relation = ((src_gt.sum(-1) != 0) & (tgt_gt.sum(-1) != 0)).float()
+        gt_full = (tgt_gt.sum(-1) == tgt_gt.shape[1]).float()
+        relation_loss = self.relation_loss_fn(relation, gt_relation)
+        full_loss = self.full_loss_fn(full, gt_full)
         return self.loss_fn(src_pred, src_gt) + self.loss_fn(tgt_pred, tgt_gt)

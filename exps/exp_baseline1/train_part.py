@@ -180,13 +180,12 @@ def forward(batch, network, conf, \
     batch_size = src_pc.shape[0]
 
     # forward through the network
-    src_pred, dst_pred = network(src_pc, dst_pc)  # B x N x 3, B x P
+    relation, full, src_pred, dst_pred = network(src_pc, dst_pc)  # B x N x 3, B x P
     src_pred = src_pred.squeeze()
     dst_pred = dst_pred.squeeze()
 
-
     # for each type of loss, compute losses per data
-    loss = network.get_loss(src_pred, src_gt, dst_pred, dst_gt)
+    loss = network.get_loss(relation, full, src_pred, src_gt, dst_pred, dst_gt)
 
     # display information
     data_split = 'train'
