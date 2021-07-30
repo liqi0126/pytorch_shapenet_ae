@@ -19,7 +19,7 @@ def gen_data(engine, sapien_path, renderer, controller, idx, TRIGGER_NAME):
 
 
 def main():
-    sapien_path = '/Users/liqi17thu/data/partnet_mobility_v0'
+    sapien_path = '/public/MARS/datasets/partnet_mobility_v0'
     pool = Pool(8)
 
     renderer = None

@@ -42,7 +42,7 @@ class InteractionEnv(object):
 
         self.sphere_force = trimesh.sample.sample_surface_sphere(500)
 
-        self.model = add_model(self.scene, sapien_idx, SAPIEN_PATH, scale=1, fix_base=True, stiffness=0, damping=0)
+        self.model = add_model(self.scene, sapien_idx, self.sapien_path, scale=1, fix_base=True, stiffness=0, damping=0)
         self.model_qlimits = self.model.get_qlimits()[:, 0]
         self.model_qlimits[np.isneginf(self.model_qlimits)] = -10
         self.model_qlimits[np.isinf(self.model_qlimits)] = 10
@@ -76,7 +76,7 @@ class InteractionEnv(object):
         self.scene = self.engine.create_scene(config=self.config)
         self.scene.set_timestep(1 / 200)
 
-        self.model = add_model(self.scene, self.sapien_idx, SAPIEN_PATH, scale=1, fix_base=True, stiffness=0, damping=0)
+        self.model = add_model(self.scene, self.sapien_idx, self.sapien_path, scale=1, fix_base=True, stiffness=0, damping=0)
         self.qpos = self.model.get_qpos()
         self.model.set_qpos(self.model_qlimits)
         while (self.qpos != self.model.get_qpos()).any():

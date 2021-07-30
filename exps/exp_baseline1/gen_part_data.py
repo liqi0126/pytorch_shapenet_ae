@@ -50,16 +50,15 @@ def main():
                 df = pd.DataFrame({"x": pc[:, 0], "y": pc[:, 1], "z": pc[:, 2], "key": np.zeros(2048, dtype=int)})
                 df.to_csv(f"part_data/{idx}.xyz")
 
-            # if not os.path.exists(f"part_data/{idx}_src.xyz"):
-            #     # pc_bg = get_pc(model, keys=TRIGGER_NAME, include=False, npoints=1024)
-            #     # pc_src = get_pc(model, keys=TRIGGER_NAME, include=True, npoints=1024)
-            #     # pc = np.r_[pc_bg, pc_src]
-            #     # pc = pc_normalize(pc)
-            #     # key = np.r_[np.zeros(1024, dtype=int), np.ones(1024, dtype=int)]
-            #     pc, key = gen_interaction_pc(engine, sapien_path, renderer, controller, idx, TRIGGER_NAME)
-            #     df = pd.DataFrame({"x": pc[:, 0], "y": pc[:, 1], "z": pc[:, 2], "key": key})
-            #     df.to_csv(f"part_data/{idx}_src.xyz")
-            #     import ipdb; ipdb.set_trace()
+            if not os.path.exists(f"part_data/{idx}_src.xyz"):
+                # pc_bg = get_pc(model, keys=TRIGGER_NAME, include=False, npoints=1024)
+                # pc_src = get_pc(model, keys=TRIGGER_NAME, include=True, npoints=1024)
+                # pc = np.r_[pc_bg, pc_src]
+                # pc = pc_normalize(pc)
+                # key = np.r_[np.zeros(1024, dtype=int), np.ones(1024, dtype=int)]
+                pc, key = gen_interaction_pc(engine, sapien_path, renderer, controller, idx, TRIGGER_NAME)
+                df = pd.DataFrame({"x": pc[:, 0], "y": pc[:, 1], "z": pc[:, 2], "key": key})
+                df.to_csv(f"part_data/{idx}_src.xyz")
 
             if not os.path.exists(f"part_data/{idx}_dst.xyz"):
                 if TARGET == 'all':
@@ -89,15 +88,15 @@ def main():
                 df = pd.DataFrame({"x": pc[:, 0], "y": pc[:, 1], "z": pc[:, 2], "key": np.zeros(2048, dtype=int)})
                 df.to_csv(f"part_data/{idx}.xyz")
 
-            # if not os.path.exists(f"part_data/{idx}_src.xyz"):
-            #     # pc_bg = get_pc(model, keys=TRIGGER_NAME, include=False, npoints=1024)
-            #     # pc_src = get_pc(model, keys=TRIGGER_NAME, include=True, npoints=1024)
-            #     # pc = np.r_[pc_bg, pc_src]
-            #     # pc = pc_normalize(pc)
-            #     # key = np.r_[np.zeros(1024, dtype=int), np.ones(1024, dtype=int)]
-            #     pc, key = gen_interaction_pc(engine, sapien_path, renderer, controller, idx, TRIGGER_NAME)
-            #     df = pd.DataFrame({"x": pc[:, 0], "y": pc[:, 1], "z": pc[:, 2], "key": key})
-            #     df.to_csv(f"part_data/{idx}_src.xyz")
+            if not os.path.exists(f"part_data/{idx}_src.xyz"):
+                # pc_bg = get_pc(model, keys=TRIGGER_NAME, include=False, npoints=1024)
+                # pc_src = get_pc(model, keys=TRIGGER_NAME, include=True, npoints=1024)
+                # pc = np.r_[pc_bg, pc_src]
+                # pc = pc_normalize(pc)
+                # key = np.r_[np.zeros(1024, dtype=int), np.ones(1024, dtype=int)]
+                pc, key = gen_interaction_pc(engine, sapien_path, renderer, controller, idx, TRIGGER_NAME)
+                df = pd.DataFrame({"x": pc[:, 0], "y": pc[:, 1], "z": pc[:, 2], "key": key})
+                df.to_csv(f"part_data/{idx}_src.xyz")
 
         for idx in DST.sapien_id:
             model = add_model(scene, idx, sapien_path)
