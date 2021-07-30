@@ -215,6 +215,7 @@ class Network(nn.Module):
 
         return loss_per_data
 
+from .loss import mIoULoss
 
 class CasualNetwork(nn.Module):
     def __init__(self, conf):
@@ -251,6 +252,7 @@ class CasualNetwork(nn.Module):
 
         self.relation_loss_fn = nn.BCELoss()
         self.full_loss_fn = nn.BCELoss()
+        self.iou_loss_fn = mIoULoss(n_classes=1)
         # self.loss_fn = nn.BCEWithLogitsLoss()
 
     """
@@ -274,8 +276,9 @@ class CasualNetwork(nn.Module):
         return relation, full, src_pred, dst_pred
 
     def get_loss(self, relation, full, src_pred, src_gt, tgt_pred, tgt_gt):
-        gt_relation = ((src_gt.sum(-1) != 0) & (tgt_gt.sum(-1) != 0)).float()
-        gt_full = (tgt_gt.sum(-1) == tgt_gt.shape[1]).float()
-        relation_loss = self.relation_loss_fn(relation, gt_relation)
-        full_loss = self.full_loss_fn(full, gt_full)
-        return self.loss_fn(src_pred, src_gt) + self.loss_fn(tgt_pred, tgt_gt)
+        gt_relation = ((src_gt.sum(-1) != 0) & (tgt_gt.sum(-1) != 0))
+        gt_full = (tgt_gt.sum(-1) == tgt_gt.shape[1])
+        relation_loss = self.relation_loss_fn(relation, gt_relation.float())
+        full_loss = self.full_loss_fn(full, gt_full.float())
+        iou_loss = self.iou_loss_fn(src_pred, src_gt) + self.iou_loss_fn(tgt_pred, tgt_gt)
+        return relation_loss + full_loss + iou_loss
