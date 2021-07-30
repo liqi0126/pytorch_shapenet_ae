@@ -252,8 +252,7 @@ class CasualNetwork(nn.Module):
 
         self.relation_loss_fn = nn.BCELoss()
         self.full_loss_fn = nn.BCELoss()
-        self.iou_loss_fn = mIoULoss(n_classes=1)
-        # self.loss_fn = nn.BCEWithLogitsLoss()
+        self.iou_loss_fn = mIoULoss(reduce=True)
 
     """
         Input: B x N x 3
