@@ -53,6 +53,17 @@ class CasualPartDataset(Dataset):
                 return True
         return False
 
+    def load_data(self, idx, type=None):
+        if type is not None:
+            df = pd.read_csv(f"part_data/{idx}_{type}.xyz")
+        else:
+            df = pd.read_csv(f"part_data/{idx}.xyz")
+        pc = df[['x', 'y', 'z']].to_numpy()
+        key = df[['key']].to_numpy()
+        pc = torch.from_numpy(pc).float().unsqueeze(0)
+        key = torch.from_numpy(key).float().unsqueeze(0)
+        return pc, key
+
     def __getitem__(self, idx):
         i = idx // self.obj_num
         j = idx % self.obj_num
@@ -63,26 +74,70 @@ class CasualPartDataset(Dataset):
         idx_j = self.sapien_indices[j]
 
         if self.check_relation(obj_i, obj_j):
-            df_i = pd.read_csv(f"part_data/{idx_i}_src.xyz")
-            df_j = pd.read_csv(f"part_data/{idx_j}_dst.xyz")
+            pc_i, key_i = self.load_data(idx_i, 'src')
+            pc_j, key_j = self.load_data(idx_j, 'dst')
         else:
-            df_i = pd.read_csv(f"part_data/{idx_i}.xyz")
-            df_j = pd.read_csv(f"part_data/{idx_j}.xyz")
-        pc_i = df_i[['x', 'y', 'z']].to_numpy()
-        pc_j = df_j[['x', 'y', 'z']].to_numpy()
-        key_i = df_i[['key']].to_numpy()
-        key_j = df_j[['key']].to_numpy()
-        pc_i = torch.from_numpy(pc_i).float().unsqueeze(0)
-        pc_j = torch.from_numpy(pc_j).float().unsqueeze(0)
-        key_i = torch.from_numpy(key_i).float().squeeze().unsqueeze(0)
-        key_j = torch.from_numpy(key_j).float().squeeze().unsqueeze(0)
+            pc_i, key_i = self.load_data(idx_i)
+            pc_j, key_j = self.load_data(idx_j)
 
         return pc_i, pc_j, key_i, key_j
+
+    def relation_graph(self):
+        graph = torch.zeros(self.obj_num, self.obj_num, dtype=torch.bool)
+        for i in range(self.obj_num):
+            for j in range(self.obj_num):
+                graph[i, j] = self.check_relation(self.obj_groups[i], self.obj_groups[j])
+        return graph
+
+    def get_scene(self):
+        pcs, keys = [], []
+        for idx in self.sapien_indices:
+            pc, key = self.load_data(idx)
+            pcs.append(pc)
+            keys.append(key)
+        return pcs, keys, self.relation_graph()
+
+
+class CasualRelationDataset(CasualPartDataset):
+    def __init__(self, no_casual_num=3, self_casual_num=3, binary_casual_num=3):
+        self.no_casual_num = no_casual_num
+        self.self_casual_num = self_casual_num
+        self.binary_casual_num = binary_casual_num
+
+    def __len__(self):
+        return 1
+
+    def check_relation(self, obj_i, obj_j):
+        for OBJ, _, _ in SELF_CASUAL:
+            if obj_i == OBJ and obj_j == OBJ:
+                return True
+
+        for SRC, _, TGT, _ in BINARY_CASUAL:
+            if obj_i == SRC and obj_j == TGT:
+                return True
+        return False
+
+    def load_data(self, idx, type=None):
+        if type is not None:
+            df = pd.read_csv(f"part_data/{idx}_{type}.xyz")
+        else:
+            df = pd.read_csv(f"part_data/{idx}.xyz")
+        pc = df[['x', 'y', 'z']].to_numpy()
+        key = df[['key']].to_numpy()
+        pc = torch.from_numpy(pc).float().unsqueeze(0)
+        key = torch.from_numpy(key).float().unsqueeze(0)
+        return pc, key
+
+    def __getitem__(self, _):
+        self.reset()
+        pcs, keys = [], []
+        for idx in self.sapien_indices:
+            pc, key = self.load_data(idx)
+            pcs.append(pc)
+            keys.append(key)
+        return pcs, keys, self.relation_graph()
 
 
 if __name__ == '__main__':
     dataset = CasualPartDataset()
-    for i in range(dataset.__len__()):
-        pc_i, pc_j, key_i, key_j = dataset.__getitem__(i)
-        if (key_i != 0).any():
-            import ipdb; ipdb.set_trace()
+    pcs, keys, graph = dataset.get_scene()
