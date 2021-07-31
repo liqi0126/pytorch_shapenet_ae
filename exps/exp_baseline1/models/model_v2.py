@@ -221,8 +221,8 @@ class CasualNetwork(nn.Module):
     def __init__(self, conf):
         super(CasualNetwork, self).__init__()
         self.conf = conf
-
-        self.encoder = PointNet2({'feat_dim': 128})
+        self.feat_dim = 128
+        self.encoder = PointNet2({'feat_dim': self.feat_dim})
         self.fc = nn.Sequential(
             nn.Linear(128, 32),
             nn.BatchNorm1d(32),
@@ -281,3 +281,17 @@ class CasualNetwork(nn.Module):
         full_loss = self.full_loss_fn(full, gt_full.float())
         iou_loss = self.iou_loss_fn(src_pred, src_gt) + self.iou_loss_fn(tgt_pred, tgt_gt)
         return relation_loss + full_loss + iou_loss
+
+    def build_prior(self, pc_groups):
+        with torch.no_grad:
+            pc_feats = []
+            for pc in pc_groups:
+                pc_feats.append(self.encoder(pc.repeat(1, 1, 2)))
+            prior_graph = torch.zeros(pc_groups.shape[0], pc_groups.shape[0])
+            for i in range(pc_groups.shape[0]):
+                for j in range(pc_groups.shape[0]):
+                    feats = pc_feats[i] + pc_feats[j]
+                    fc_output = self.fc(feats)
+                    relation = torch.sigmoid(fc_output[:, 0])
+                    prior_graph[i, j] = relation
+            return pc_feats, prior_graph
