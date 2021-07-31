@@ -10,7 +10,7 @@ class mIoULoss(nn.Module):
     def forward(self, inputs, target):
         inter = (inputs * target).sum(-1)
         union = inputs.sum(-1) + target.sum(-1) - inter
-        IoULoss = - inter / (union + 1e-8)
+        IoULoss = 1 - inter / (union + 1e-8)
         if self.reduce:
             IoULoss = torch.mean(IoULoss)
         return IoULoss

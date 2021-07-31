@@ -238,8 +238,15 @@ def forward(batch, network, conf, \
                     utils.render_pc(os.path.join(input_pcs_dir, src_fn), src_pc[i].cpu().numpy(), src_gt[i].bool().cpu().numpy())
                     utils.render_pc(os.path.join(input_pcs_dir, dst_fn), dst_pc[i].cpu().numpy(), dst_gt[i].bool().cpu().numpy())
 
-                    utils.render_pc(os.path.join(output_pcs_dir, src_fn), src_pc[i].cpu().numpy(), (src_pred[i] > 0).cpu().numpy())
-                    utils.render_pc(os.path.join(output_pcs_dir, dst_fn), dst_pc[i].cpu().numpy(), (dst_pred[i] > 0).cpu().numpy())
+                    if relation[i] < 0.5:
+                        utils.render_pc(os.path.join(output_pcs_dir, src_fn), src_pc[i].cpu().numpy(), np.zeros(src_pc[i].shape[0], dtype=bool))
+                        utils.render_pc(os.path.join(output_pcs_dir, dst_fn), dst_pc[i].cpu().numpy(), np.zeros(dst_pc[i].shape[0], dtype=bool))
+                    else:
+                        utils.render_pc(os.path.join(output_pcs_dir, src_fn), src_pc[i].cpu().numpy(), (src_pred[i] >= 0.5).cpu().numpy())
+                        if full[i] >= 0.5:
+                            utils.render_pc(os.path.join(output_pcs_dir, dst_fn), dst_pc[i].cpu().numpy(), np.ones(dst_pc[i].shape[0], dtype=bool))
+                        else:
+                            utils.render_pc(os.path.join(output_pcs_dir, dst_fn), dst_pc[i].cpu().numpy(), (dst_pred[i] >= 0.5).cpu().numpy())
 
             if batch_ind == conf.num_batch_every_visu - 1:
                 # visu html
