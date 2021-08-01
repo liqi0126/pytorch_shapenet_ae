@@ -31,14 +31,14 @@ def train(conf):
     train_dataset = CasualPartDataset(no_casual_num=0, self_casual_num=2, binary_casual_num=1)
     utils.printout(conf.flog, str(train_dataset))
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=conf.batch_size, shuffle=True,
-                                                   pin_memory=True, \
+                                                   pin_memory=False, \
                                                    num_workers=conf.num_workers, drop_last=True,
                                                    collate_fn=utils.collate_feats, worker_init_fn=utils.worker_init_fn)
 
     val_dataset = CasualPartDataset(no_casual_num=0, self_casual_num=2, binary_casual_num=1)
     utils.printout(conf.flog, str(val_dataset))
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=conf.batch_size, shuffle=False,
-                                                 pin_memory=True, \
+                                                 pin_memory=False, \
                                                  num_workers=0, drop_last=True, collate_fn=utils.collate_feats,
                                                  worker_init_fn=utils.worker_init_fn)
 
@@ -63,7 +63,7 @@ def train(conf):
 
     # create logs
     if not conf.no_console_log:
-        header = '     Time    Epoch     Dataset    Iteration    Progress(%)       LR    ReconLoss    KLDivLoss   TotalLoss'
+        header = '     Time    Epoch     Dataset    Iteration    Progress(%)       LR   TotalLoss   Accuracy    SRC_IOU     TGT_IOU'
     if not conf.no_tb_log:
         # https://github.com/lanpa/tensorboard-pytorch
         from tensorboardX import SummaryWriter
@@ -185,7 +185,7 @@ def forward(batch, network, conf, \
     dst_pred = dst_pred.squeeze()
 
     # for each type of loss, compute losses per data
-    loss = network.get_loss(relation, full, src_pred, src_gt, dst_pred, dst_gt)
+    loss, accuracy, src_iou, tgt_iou = network.get_loss(relation, full, src_pred, src_gt, dst_pred, dst_gt)
 
     # display information
     data_split = 'train'
@@ -202,7 +202,10 @@ def forward(batch, network, conf, \
                            f'''{batch_ind:>5.0f}/{num_batch:<5.0f} '''
                            f'''{100. * (1 + batch_ind + num_batch * epoch) / (num_batch * conf.epochs):>9.1f}%      '''
                            f'''{lr:>5.2E} '''
-                           f'''{loss.item():>10.5f}''')
+                           f'''{loss.item():>10.5f}'''
+                           f'''{accuracy.item():>10.5f}'''
+                           f'''{src_iou.item():>10.5f}'''
+                           f'''{tgt_iou.item():>10.5f}''')
             conf.flog.flush()
 
         # log to tensorboard
@@ -274,6 +277,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=3124256514,
                         help='random seed (for reproducibility) [specify -1 means to generate a random one]')
     # parser.add_argument('--seed', type=int, default=-1, help='random seed (for reproducibility) [specify -1 means to generate a random one]')
+    parser.add_argument('--checkpoint', type=str)
     parser.add_argument('--log_dir', type=str, default='logs', help='exp logs directory')
     parser.add_argument('--data_dir', type=str, help='data directory')
     parser.add_argument('--val_data_dir', type=str, help='data directory')
@@ -301,7 +305,7 @@ if __name__ == '__main__':
     # logging
     parser.add_argument('--no_tb_log', action='store_true', default=False)
     parser.add_argument('--no_console_log', action='store_true', default=False)
-    parser.add_argument('--console_log_interval', type=int, default=10,
+    parser.add_argument('--console_log_interval', type=int, default=1,
                         help='number of optimization steps beween console log prints')
     parser.add_argument('--checkpoint_interval', type=int, default=10000,
                         help='number of optimization steps beween checkpoints')

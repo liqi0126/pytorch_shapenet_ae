@@ -61,7 +61,7 @@ class CasualPartDataset(Dataset):
         pc = df[['x', 'y', 'z']].to_numpy()
         key = df[['key']].to_numpy()
         pc = torch.from_numpy(pc).float().unsqueeze(0)
-        key = torch.from_numpy(key).float().unsqueeze(0)
+        key = torch.from_numpy(key).float().squeeze().unsqueeze(0)
         return pc, key
 
     def __getitem__(self, idx):
@@ -124,8 +124,8 @@ class CasualRelationDataset(CasualPartDataset):
             df = pd.read_csv(f"part_data/{idx}.xyz")
         pc = df[['x', 'y', 'z']].to_numpy()
         key = df[['key']].to_numpy()
-        pc = torch.from_numpy(pc).float().unsqueeze(0)
-        key = torch.from_numpy(key).float().unsqueeze(0)
+        pc = torch.from_numpy(pc).float()
+        key = torch.from_numpy(key).float()
         return pc, key
 
     def __getitem__(self, _):
@@ -135,7 +135,7 @@ class CasualRelationDataset(CasualPartDataset):
             pc, key = self.load_data(idx)
             pcs.append(pc)
             keys.append(key)
-        return pcs, keys, self.relation_graph()
+        return torch.stack(pcs), torch.stack(keys), self.relation_graph()
 
 
 if __name__ == '__main__':
