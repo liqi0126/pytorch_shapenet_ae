@@ -33,14 +33,14 @@ def train(conf):
     train_dataset = CasualRelationDataset(no_casual_num=0, self_casual_num=2, binary_casual_num=1)
     utils.printout(conf.flog, str(train_dataset))
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=conf.batch_size, shuffle=True,
-                                                   pin_memory=True, \
+                                                   pin_memory=False, \
                                                    num_workers=conf.num_workers, drop_last=True,
                                                    collate_fn=utils.collate_feats, worker_init_fn=utils.worker_init_fn)
 
     val_dataset = CasualRelationDataset(no_casual_num=0, self_casual_num=2, binary_casual_num=1)
     utils.printout(conf.flog, str(val_dataset))
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=conf.batch_size, shuffle=False,
-                                                 pin_memory=True, \
+                                                 pin_memory=False, \
                                                  num_workers=0, drop_last=True, collate_fn=utils.collate_feats,
                                                  worker_init_fn=utils.worker_init_fn)
 
@@ -55,7 +55,16 @@ def train(conf):
         raise ValueError
 
     out_channels = 16
-    network = VGAE(VariationalGCNEncoder(prior_net.feat_dim, out_channels))
+    if not conf.variational:
+        if not conf.linear:
+            network = GAE(GCNEncoder(prior_net.feat_dim, out_channels))
+        else:
+            network = GAE(LinearEncoder(prior_net.feat_dim, out_channels))
+    else:
+        if conf.linear:
+            network = VGAE(VariationalLinearEncoder(prior_net.feat_dim, out_channels))
+        else:
+            network = VGAE(VariationalGCNEncoder(prior_net.feat_dim, out_channels))
     network.prior_net = prior_net
 
     utils.printout(conf.flog, '\n' + str(prior_net) + '\n')
@@ -74,7 +83,7 @@ def train(conf):
 
     # create logs
     if not conf.no_console_log:
-        header = '     Time    Epoch     Dataset    Iteration    Progress(%)       LR    ReconLoss    KLDivLoss   TotalLoss'
+        header = '     Time    Epoch     Dataset    Iteration    Progress(%)       LR       Loss     AUC       AP'
     if not conf.no_tb_log:
         # https://github.com/lanpa/tensorboard-pytorch
         from tensorboardX import SummaryWriter
@@ -182,13 +191,24 @@ def forward(batch, network, conf, is_val=False, step=None, epoch=None, batch_ind
             log_console=False, log_tb=False, tb_writer=None, lr=None):
     # prepare input
     pcs, keys, gt_graph = batch
-    import ipdb; ipdb.set_trace()
+    pcs = pcs[0].to(conf.device)
+    keys = keys[0].to(conf.device)
+    gt_graph = gt_graph[0].to(conf.device)
     # forward through the network
+    network.prior_net = network.prior_net.eval()
     pc_feats, prior_graph = network.prior_net.build_prior(pcs)
+    import ipdb; ipdb.set_trace()
     z = network.encode(pc_feats, prior_graph)
-    loss = network.recon_loss(z, train_pos_edge_index)
+    pos_edge_index = torch.stack(torch.where(gt_graph == True))
+    neg_edge_index = torch.stack(torch.where(gt_graph == False))
+    loss = network.recon_loss(z[0], pos_edge_index, neg_edge_index)
     if conf.variational:
         loss = loss + (1 / gt_graph.shape[0]) * network.kl_loss()
+    network.eval()
+    with torch.no_grad():
+        z = network.encode(pc_feats, prior_graph)
+    auc, ap = network.test(z[0], pos_edge_index, neg_edge_index)
+    network.train()
 
     # display information
     data_split = 'train'
@@ -205,7 +225,9 @@ def forward(batch, network, conf, is_val=False, step=None, epoch=None, batch_ind
                            f'''{batch_ind:>5.0f}/{num_batch:<5.0f} '''
                            f'''{100. * (1 + batch_ind + num_batch * epoch) / (num_batch * conf.epochs):>9.1f}%      '''
                            f'''{lr:>5.2E} '''
-                           f'''{loss.item():>10.5f}''')
+                           f'''{loss.item():>10.5f} '''
+                           f'''{auc:>10.5f} '''
+                           f'''{ap:>10.5f}''')
             conf.flog.flush()
 
         # log to tensorboard
@@ -233,6 +255,8 @@ if __name__ == '__main__':
     parser.add_argument('--log_dir', type=str, default='logs', help='exp logs directory')
     parser.add_argument('--data_dir', type=str, help='data directory')
     parser.add_argument('--checkpoint', type=str, default=None)
+    parser.add_argument('--variational', action='store_true')
+    parser.add_argument('--linear', action='store_true')
     parser.add_argument('--val_data_dir', type=str, help='data directory')
     parser.add_argument('--overwrite', action='store_true', default=False,
                         help='overwrite if exp_dir exists [default: False]')
@@ -258,9 +282,9 @@ if __name__ == '__main__':
     # logging
     parser.add_argument('--no_tb_log', action='store_true', default=False)
     parser.add_argument('--no_console_log', action='store_true', default=False)
-    parser.add_argument('--console_log_interval', type=int, default=10,
+    parser.add_argument('--console_log_interval', type=int, default=1,
                         help='number of optimization steps beween console log prints')
-    parser.add_argument('--checkpoint_interval', type=int, default=10000,
+    parser.add_argument('--checkpoint_interval', type=int, default=100,
                         help='number of optimization steps beween checkpoints')
 
     # visu

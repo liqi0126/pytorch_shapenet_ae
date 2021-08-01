@@ -278,6 +278,7 @@ class CasualNetwork(nn.Module):
         gt_relation = ((src_gt.sum(-1) != 0) & (tgt_gt.sum(-1) != 0))
         gt_full = (tgt_gt.sum(-1) == tgt_gt.shape[1])
         relation_loss = self.relation_loss_fn(relation, gt_relation.float())
+        # return relation_loss.mean()
         full_loss = self.full_loss_fn(full, gt_full.float())
         full_loss[~gt_relation] = 0
         tgt_iou_loss = self.iou_loss_fn(tgt_pred, tgt_gt)
@@ -285,18 +286,26 @@ class CasualNetwork(nn.Module):
         src_iou_loss = self.iou_loss_fn(src_pred, src_gt)
         src_iou_loss[~gt_relation] = 0
         total_loss = relation_loss + full_loss + tgt_iou_loss + src_iou_loss
-        return total_loss.mean()
+        accuracy = ((relation_loss >= 0.5) == gt_relation).float().mean()
+        tgt_oh_pred = tgt_pred[gt_relation & ~gt_full] > 0.5
+        tgt_oh_gt = tgt_gt[gt_relation & ~gt_full] > 0.5
+        tgt_iou = ((tgt_oh_pred > 0.5) & (tgt_oh_gt > 0.5)).float().sum() / ((tgt_oh_pred > 0.5) | (tgt_oh_gt > 0.5)).float().sum()
+        src_oh_pred = src_pred[gt_relation] > 0.5
+        src_oh_gt = src_gt[gt_relation] > 0.5
+        src_iou = ((src_oh_pred > 0.5) & (src_oh_gt > 0.5)).float().sum() / ((src_oh_pred > 0.5) | (src_oh_gt > 0.5)).float().sum()
+        return total_loss.mean(), accuracy, src_iou, tgt_iou
 
-    def build_prior(self, pc_groups):
-        with torch.no_grad:
+    def build_prior(self, pcs):
+        with torch.no_grad():
             pc_feats = []
-            for pc in pc_groups:
-                pc_feats.append(self.encoder(pc.repeat(1, 1, 2)))
-            prior_graph = torch.zeros(pc_groups.shape[0], pc_groups.shape[0])
-            for i in range(pc_groups.shape[0]):
-                for j in range(pc_groups.shape[0]):
+            for pc in pcs:
+                pc_feats.append(self.encoder(pc.unsqueeze(0).repeat(1, 1, 2)))
+            pc_feats = torch.cat(pc_feats)
+            prior_graph = torch.zeros(pcs.shape[0], pcs.shape[0]).to(pcs.device)
+            for i in range(pcs.shape[0]):
+                for j in range(pcs.shape[0]):
                     feats = pc_feats[i] + pc_feats[j]
-                    fc_output = self.fc(feats)
+                    fc_output = self.fc(feats.unsqueeze(0))
                     relation = torch.sigmoid(fc_output[:, 0])
                     prior_graph[i, j] = relation
             return pc_feats, prior_graph
