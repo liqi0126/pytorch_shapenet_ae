@@ -222,7 +222,7 @@ class CasualNetwork(nn.Module):
         super(CasualNetwork, self).__init__()
         self.conf = conf
         self.feat_dim = 128
-        self.pn_encoder = PointNet(k=128)
+        self.pn_encoder = PointNet(k=128, normal_channel=False)
         self.encoder = PointNet2({'feat_dim': self.feat_dim})
         self.fc = nn.Sequential(
             nn.Linear(128, 32),
@@ -271,15 +271,26 @@ class CasualNetwork(nn.Module):
         dst_feats = self.dst_sample_decoder(dst_feats)
         dst_pred = torch.sigmoid(self.dst_decoder(dst_feats))
 
-        fc_output = self.fc(feats)
+        src_pn_feats = self.pn_encoder(src_pcs.permute(0, 2, 1))
+        dst_pn_feats = self.pn_encoder(dst_pcs.permute(0, 2, 1))
+        pn_feats = src_pn_feats + dst_pn_feats
+        fc_output = self.fc(pn_feats)
         relation, full = torch.sigmoid(fc_output[:, 0]), torch.sigmoid(fc_output[:, 1])
         return relation, full, src_pred, dst_pred
 
     def get_loss(self, relation, full, src_pred, src_gt, tgt_pred, tgt_gt):
         gt_relation = ((src_gt.sum(-1) != 0) & (tgt_gt.sum(-1) != 0))
         gt_full = (tgt_gt.sum(-1) == tgt_gt.shape[1])
+        import ipdb; ipdb.set_trace()
         relation_loss = self.relation_loss_fn(relation, gt_relation.float())
-        # return relation_loss.mean()
+        accuracy = ((relation_loss >= 0.5) == gt_relation).float().mean()
+        tgt_oh_pred = tgt_pred[gt_relation & ~gt_full] > 0.5
+        tgt_oh_gt = tgt_gt[gt_relation & ~gt_full] > 0.5
+        tgt_iou = ((tgt_oh_pred > 0.5) & (tgt_oh_gt > 0.5)).float().sum() / (((tgt_oh_pred > 0.5) | (tgt_oh_gt > 0.5)).float().sum() + 1e-8)
+        src_oh_pred = src_pred[gt_relation] > 0.5
+        src_oh_gt = src_gt[gt_relation] > 0.5
+        src_iou = ((src_oh_pred > 0.5) & (src_oh_gt > 0.5)).float().sum() / (((src_oh_pred > 0.5) | (src_oh_gt > 0.5)).float().sum() + 1e-8)
+        return relation_loss.mean(), accuracy, src_iou, tgt_iou
         full_loss = self.full_loss_fn(full, gt_full.float())
         full_loss[~gt_relation] = 0
         tgt_iou_loss = self.iou_loss_fn(tgt_pred, tgt_gt)
@@ -287,13 +298,6 @@ class CasualNetwork(nn.Module):
         src_iou_loss = self.iou_loss_fn(src_pred, src_gt)
         src_iou_loss[~gt_relation] = 0
         total_loss = relation_loss + full_loss + tgt_iou_loss + src_iou_loss
-        accuracy = ((relation_loss >= 0.5) == gt_relation).float().mean()
-        tgt_oh_pred = tgt_pred[gt_relation & ~gt_full] > 0.5
-        tgt_oh_gt = tgt_gt[gt_relation & ~gt_full] > 0.5
-        tgt_iou = ((tgt_oh_pred > 0.5) & (tgt_oh_gt > 0.5)).float().sum() / ((tgt_oh_pred > 0.5) | (tgt_oh_gt > 0.5)).float().sum()
-        src_oh_pred = src_pred[gt_relation] > 0.5
-        src_oh_gt = src_gt[gt_relation] > 0.5
-        src_iou = ((src_oh_pred > 0.5) & (src_oh_gt > 0.5)).float().sum() / ((src_oh_pred > 0.5) | (src_oh_gt > 0.5)).float().sum()
         return total_loss.mean(), accuracy, src_iou, tgt_iou
 
     def build_prior(self, pcs):
