@@ -10,7 +10,7 @@ from emd.emd import earth_mover_distance
 from pointnet2_ops import pointnet2_utils
 from pointnet2_ops.pointnet2_modules import PointnetFPModule, PointnetSAModule
 from pointnet2.models.pointnet2_ssg_cls import PointNet2ClassificationSSG
-
+from .pointnet import PointNet
 
 class PointNet2(PointNet2ClassificationSSG):
     def _build_model(self):
@@ -222,6 +222,7 @@ class CasualNetwork(nn.Module):
         super(CasualNetwork, self).__init__()
         self.conf = conf
         self.feat_dim = 128
+        self.pn_encoder = PointNet(k=128)
         self.encoder = PointNet2({'feat_dim': self.feat_dim})
         self.fc = nn.Sequential(
             nn.Linear(128, 32),
@@ -248,7 +249,7 @@ class CasualNetwork(nn.Module):
             self.src_decoder = FCUpconvDecoder(num_point=conf.num_point, dim=1)
             self.dst_decoder = FCUpconvDecoder(num_point=conf.num_point, dim=1)
         else:
-            raise ValueError('ERROR: unknown decoder_type %s!' % decoder_type)
+            raise ValueError('ERROR: unknown decoder_type %s!' % conf.decoder_type)
 
         self.relation_loss_fn = nn.BCELoss(reduce=False)
         self.full_loss_fn = nn.BCELoss(reduce=False)
