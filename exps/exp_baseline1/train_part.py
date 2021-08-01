@@ -172,6 +172,8 @@ def forward(batch, network, conf, \
             log_console=False, log_tb=False, tb_writer=None, lr=None):
     # prepare input
     src_idx, dst_idx, src_pc, dst_pc, src_gt, dst_gt = batch
+    src_idx = torch.cat(src_idx, dim=0).to(conf.device)
+    dst_idx = torch.cat(dst_idx, dim=0).to(conf.device)
     src_pc = torch.cat(src_pc, dim=0).to(conf.device)
     dst_pc = torch.cat(dst_pc, dim=0).to(conf.device)
     src_gt = torch.cat(src_gt, dim=0).to(conf.device)

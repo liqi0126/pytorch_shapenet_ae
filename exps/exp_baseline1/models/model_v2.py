@@ -216,6 +216,7 @@ class Network(nn.Module):
         return loss_per_data
 
 from .loss import mIoULoss
+from ..sapien_const import OBJ_NUM
 
 class CasualNetwork(nn.Module):
     def __init__(self, conf):
@@ -224,8 +225,9 @@ class CasualNetwork(nn.Module):
         self.feat_dim = 128
         self.pn_encoder = PointNet(k=128, normal_channel=False)
         self.encoder = PointNet2({'feat_dim': self.feat_dim})
+        input_dim = 2 * OBJ_NUM + 128
         self.fc = nn.Sequential(
-            nn.Linear(128, 32),
+            nn.Linear(input_dim, 32),
             nn.BatchNorm1d(32),
             nn.ReLU(True),
             nn.Linear(32, 8),
@@ -260,7 +262,7 @@ class CasualNetwork(nn.Module):
         Output: B x N x 3, B x F
     """
 
-    def forward(self, src_pcs, dst_pcs):
+    def forward(self, src_idx, dst_idx, src_pcs, dst_pcs):
         src_feats = self.encoder(src_pcs.repeat(1, 1, 2))
         dst_feats = self.encoder(dst_pcs.repeat(1, 1, 2))
         feats = src_feats + dst_feats
@@ -274,14 +276,14 @@ class CasualNetwork(nn.Module):
         src_pn_feats = self.pn_encoder(src_pcs.permute(0, 2, 1))
         dst_pn_feats = self.pn_encoder(dst_pcs.permute(0, 2, 1))
         pn_feats = src_pn_feats + dst_pn_feats
-        fc_output = self.fc(pn_feats)
+        feats = torch.cat([src_idx, dst_idx, pn_feats])
+        fc_output = self.fc(feats)
         relation, full = torch.sigmoid(fc_output[:, 0]), torch.sigmoid(fc_output[:, 1])
         return relation, full, src_pred, dst_pred
 
     def get_loss(self, relation, full, src_pred, src_gt, tgt_pred, tgt_gt):
         gt_relation = ((src_gt.sum(-1) != 0) & (tgt_gt.sum(-1) != 0))
         gt_full = (tgt_gt.sum(-1) == tgt_gt.shape[1])
-        import ipdb; ipdb.set_trace()
         relation_loss = self.relation_loss_fn(relation, gt_relation.float())
         accuracy = ((relation_loss >= 0.5) == gt_relation).float().mean()
         tgt_oh_pred = tgt_pred[gt_relation & ~gt_full] > 0.5

@@ -4,7 +4,7 @@ import pandas as pd
 
 import torch
 from torch.utils.data import Dataset
-from sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL
+from sapien_const import NO_CASUAL, SELF_CASUAL, BINARY_CASUAL, OBJ_NUM
 
 
 class CasualPartDataset(Dataset):
@@ -80,7 +80,9 @@ class CasualPartDataset(Dataset):
             pc_i, key_i = self.load_data(idx_i)
             pc_j, key_j = self.load_data(idx_j)
 
-        return obj_i.idx, obj_j.idx, pc_i, pc_j, key_i, key_j
+        onehot_i = torch.zeros(OBJ_NUM); onehot_i[obj_i.idx] = 1
+        onehot_j = torch.zeros(OBJ_NUM); onehot_j[obj_j.idx] = 1
+        return onehot_i, onehot_j, pc_i, pc_j, key_i, key_j
 
     def relation_graph(self):
         graph = torch.zeros(self.obj_num, self.obj_num, dtype=torch.bool)
