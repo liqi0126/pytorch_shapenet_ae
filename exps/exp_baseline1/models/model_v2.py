@@ -251,9 +251,9 @@ class CasualNetwork(nn.Module):
         else:
             raise ValueError('ERROR: unknown decoder_type %s!' % conf.decoder_type)
 
-        self.relation_loss_fn = nn.BCELoss()
-        self.full_loss_fn = nn.BCELoss()
-        self.iou_loss_fn = mIoULoss(reduce=True)
+        self.relation_loss_fn = nn.BCELoss(reduce=False)
+        self.full_loss_fn = nn.BCELoss(reduce=False)
+        self.iou_loss_fn = mIoULoss(reduce=False)
 
     """
         Input: B x N x 3
@@ -266,10 +266,10 @@ class CasualNetwork(nn.Module):
         feats = src_feats + dst_feats
         src_feats = self.src_sample_encoder(feats)
         src_feats = self.src_sample_decoder(src_feats)
-        src_pred = self.src_decoder(src_feats)
+        src_pred = torch.sigmoid(self.src_decoder(src_feats))
         dst_feats = self.dst_sample_encoder(feats)
         dst_feats = self.dst_sample_decoder(dst_feats)
-        dst_pred = self.dst_decoder(dst_feats)
+        dst_pred = torch.sigmoid(self.dst_decoder(dst_feats))
 
         fc_output = self.fc(feats)
         relation, full = torch.sigmoid(fc_output[:, 0]), torch.sigmoid(fc_output[:, 1])
@@ -280,8 +280,13 @@ class CasualNetwork(nn.Module):
         gt_full = (tgt_gt.sum(-1) == tgt_gt.shape[1])
         relation_loss = self.relation_loss_fn(relation, gt_relation.float())
         full_loss = self.full_loss_fn(full, gt_full.float())
-        iou_loss = self.iou_loss_fn(src_pred, src_gt) + self.iou_loss_fn(tgt_pred, tgt_gt)
-        return relation_loss + full_loss + iou_loss
+        full_loss[~gt_relation] = 0
+        tgt_iou_loss = self.iou_loss_fn(tgt_pred, tgt_gt)
+        tgt_iou_loss[~gt_relation | gt_full] = 0
+        src_iou_loss = self.iou_loss_fn(src_pred, src_gt)
+        src_iou_loss[~gt_relation] = 0
+        total_loss = relation_loss + full_loss + tgt_iou_loss + src_iou_loss
+        return total_loss.mean()
 
     def build_prior(self, pc_groups):
         with torch.no_grad:
