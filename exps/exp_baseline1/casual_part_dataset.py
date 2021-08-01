@@ -80,7 +80,7 @@ class CasualPartDataset(Dataset):
             pc_i, key_i = self.load_data(idx_i)
             pc_j, key_j = self.load_data(idx_j)
 
-        return pc_i, pc_j, key_i, key_j
+        return obj_i.idx, obj_j.idx, pc_i, pc_j, key_i, key_j
 
     def relation_graph(self):
         graph = torch.zeros(self.obj_num, self.obj_num, dtype=torch.bool)
@@ -140,4 +140,4 @@ class CasualRelationDataset(CasualPartDataset):
 
 if __name__ == '__main__':
     dataset = CasualPartDataset()
-    pcs, keys, graph = dataset.get_scene()
+    pc_i, pc_j, key_i, key_j = dataset.__getitem__(0)

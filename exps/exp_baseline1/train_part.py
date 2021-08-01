@@ -171,7 +171,7 @@ def forward(batch, network, conf, \
             is_val=False, step=None, epoch=None, batch_ind=0, num_batch=1, start_time=0, \
             log_console=False, log_tb=False, tb_writer=None, lr=None):
     # prepare input
-    src_pc, dst_pc, src_gt, dst_gt = batch
+    src_idx, dst_idx, src_pc, dst_pc, src_gt, dst_gt = batch
     src_pc = torch.cat(src_pc, dim=0).to(conf.device)
     dst_pc = torch.cat(dst_pc, dim=0).to(conf.device)
     src_gt = torch.cat(src_gt, dim=0).to(conf.device)
@@ -180,7 +180,7 @@ def forward(batch, network, conf, \
     batch_size = src_pc.shape[0]
 
     # forward through the network
-    relation, full, src_pred, dst_pred = network(src_pc, dst_pc)  # B x N x 3, B x P
+    relation, full, src_pred, dst_pred = network(src_idx, dst_idx, src_pc, dst_pc)  # B x N x 3, B x P
     src_pred = src_pred.squeeze()
     dst_pred = dst_pred.squeeze()
 
