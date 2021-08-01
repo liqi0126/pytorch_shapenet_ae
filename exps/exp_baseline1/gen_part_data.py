@@ -11,8 +11,8 @@ from sapien_utils import add_model, get_pc, get_pc_with_key, pc_normalize
 from interaction_env import gen_interaction_pc
 
 def main():
-    sapien_path = '/public/MARS/datasets/partnet_mobility_v0'
-    # sapien_path = '/Users/liqi17thu/data/partnet_mobility_v0'
+    # sapien_path = '/public/MARS/datasets/partnet_mobility_v0'
+    sapien_path = '/Users/liqi17thu/data/partnet_mobility_v0'
 
     engine = sapien.Engine(0, 0.001, 0.005)
     renderer = None
