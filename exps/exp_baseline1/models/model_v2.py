@@ -216,7 +216,7 @@ class Network(nn.Module):
         return loss_per_data
 
 from .loss import mIoULoss
-from ..sapien_const import OBJ_NUM
+from sapien_const import OBJ_NUM
 
 class CasualNetwork(nn.Module):
     def __init__(self, conf):
@@ -226,15 +226,36 @@ class CasualNetwork(nn.Module):
         self.pn_encoder = PointNet(k=128, normal_channel=False)
         self.encoder = PointNet2({'feat_dim': self.feat_dim})
         input_dim = 2 * OBJ_NUM + 128
-        self.fc = nn.Sequential(
-            nn.Linear(input_dim, 32),
-            nn.BatchNorm1d(32),
+        # input_dim = 2 * OBJ_NUM
+
+        self.relation_net = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.BatchNorm1d(64),
             nn.ReLU(True),
-            nn.Linear(32, 8),
-            nn.BatchNorm1d(8),
+            nn.Linear(64, 16),
+            nn.BatchNorm1d(16),
             nn.ReLU(True),
-            nn.Linear(8, 2),
-            nn.BatchNorm1d(2),
+            nn.Linear(16, 4),
+            nn.BatchNorm1d(4),
+            nn.ReLU(True),
+            nn.Linear(4, 1),
+            nn.BatchNorm1d(1),
+            nn.Sigmoid()
+        )
+
+        self.full_net = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(True),
+            nn.Linear(64, 16),
+            nn.BatchNorm1d(16),
+            nn.ReLU(True),
+            nn.Linear(16, 4),
+            nn.BatchNorm1d(4),
+            nn.ReLU(True),
+            nn.Linear(4, 1),
+            nn.BatchNorm1d(1),
+            nn.Sigmoid()
         )
 
         self.src_sample_encoder = Sampler(128, 256, probabilistic=conf.probabilistic)
@@ -246,7 +267,6 @@ class CasualNetwork(nn.Module):
         if conf.decoder_type == 'fc':
             self.src_decoder = FCDecoder(num_point=conf.num_point, dim=1)
             self.dst_decoder = FCDecoder(num_point=conf.num_point, dim=1)
-
         elif conf.decoder_type == 'fc_upconv':
             self.src_decoder = FCUpconvDecoder(num_point=conf.num_point, dim=1)
             self.dst_decoder = FCUpconvDecoder(num_point=conf.num_point, dim=1)
@@ -276,25 +296,27 @@ class CasualNetwork(nn.Module):
         src_pn_feats = self.pn_encoder(src_pcs.permute(0, 2, 1))
         dst_pn_feats = self.pn_encoder(dst_pcs.permute(0, 2, 1))
         pn_feats = src_pn_feats + dst_pn_feats
-        feats = torch.cat([src_idx, dst_idx, pn_feats])
-        fc_output = self.fc(feats)
-        relation, full = torch.sigmoid(fc_output[:, 0]), torch.sigmoid(fc_output[:, 1])
+        feats = torch.cat([src_idx, dst_idx, pn_feats], -1)
+        # feats = torch.cat([src_idx, dst_idx], -1)
+        relation = self.relation_net(feats).squeeze()
+        full = self.full_net(feats).squeeze()
         return relation, full, src_pred, dst_pred
 
     def get_loss(self, relation, full, src_pred, src_gt, tgt_pred, tgt_gt):
         gt_relation = ((src_gt.sum(-1) != 0) & (tgt_gt.sum(-1) != 0))
         gt_full = (tgt_gt.sum(-1) == tgt_gt.shape[1])
         relation_loss = self.relation_loss_fn(relation, gt_relation.float())
-        accuracy = ((relation_loss >= 0.5) == gt_relation).float().mean()
+        accuracy = ((relation >= 0.5) == gt_relation).float().mean()
+
+        full_loss = self.full_loss_fn(full, gt_full.float())
+        full_loss[~gt_relation] = 0
+
         tgt_oh_pred = tgt_pred[gt_relation & ~gt_full] > 0.5
         tgt_oh_gt = tgt_gt[gt_relation & ~gt_full] > 0.5
         tgt_iou = ((tgt_oh_pred > 0.5) & (tgt_oh_gt > 0.5)).float().sum() / (((tgt_oh_pred > 0.5) | (tgt_oh_gt > 0.5)).float().sum() + 1e-8)
         src_oh_pred = src_pred[gt_relation] > 0.5
         src_oh_gt = src_gt[gt_relation] > 0.5
         src_iou = ((src_oh_pred > 0.5) & (src_oh_gt > 0.5)).float().sum() / (((src_oh_pred > 0.5) | (src_oh_gt > 0.5)).float().sum() + 1e-8)
-        return relation_loss.mean(), accuracy, src_iou, tgt_iou
-        full_loss = self.full_loss_fn(full, gt_full.float())
-        full_loss[~gt_relation] = 0
         tgt_iou_loss = self.iou_loss_fn(tgt_pred, tgt_gt)
         tgt_iou_loss[~gt_relation | gt_full] = 0
         src_iou_loss = self.iou_loss_fn(src_pred, src_gt)
@@ -302,17 +324,15 @@ class CasualNetwork(nn.Module):
         total_loss = relation_loss + full_loss + tgt_iou_loss + src_iou_loss
         return total_loss.mean(), accuracy, src_iou, tgt_iou
 
-    def build_prior(self, pcs):
+    def build_prior(self, indices, pcs):
         with torch.no_grad():
-            pc_feats = []
-            for pc in pcs:
-                pc_feats.append(self.encoder(pc.unsqueeze(0).repeat(1, 1, 2)))
-            pc_feats = torch.cat(pc_feats)
+            pc_feats = self.encoder(pcs.repeat(1, 1, 2))
+            pn_feats = self.pn_encoder(pcs.permute(0, 2, 1))
             prior_graph = torch.zeros(pcs.shape[0], pcs.shape[0]).to(pcs.device)
             for i in range(pcs.shape[0]):
                 for j in range(pcs.shape[0]):
-                    feats = pc_feats[i] + pc_feats[j]
-                    fc_output = self.fc(feats.unsqueeze(0))
-                    relation = torch.sigmoid(fc_output[:, 0])
+                    pn_feat = pn_feats[i] + pn_feats[j]
+                    feats = torch.cat([indices[i], indices[j], pn_feat], -1)
+                    relation = self.relation_net(feats.unsqueeze(0)).squeeze()
                     prior_graph[i, j] = relation
-            return pc_feats, prior_graph
+        return pc_feats, prior_graph

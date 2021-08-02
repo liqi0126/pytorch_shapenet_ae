@@ -51,8 +51,10 @@ def train(conf):
     prior_net = model_def.CasualNetwork(conf)
     if conf.checkpoint is not None:
         prior_net.load_state_dict(torch.load(conf.checkpoint))
-    else:
-        raise ValueError
+    # else:
+    #    raise ValueError
+    prior_net.to(conf.device)
+    prior_net.eval()
 
     out_channels = 16
     if not conf.variational:
@@ -65,7 +67,6 @@ def train(conf):
             network = VGAE(VariationalLinearEncoder(prior_net.feat_dim, out_channels))
         else:
             network = VGAE(VariationalGCNEncoder(prior_net.feat_dim, out_channels))
-    network.prior_net = prior_net
 
     utils.printout(conf.flog, '\n' + str(prior_net) + '\n')
 
@@ -131,7 +132,7 @@ def train(conf):
                 m.train()
 
             # forward pass (including logging)
-            total_loss = forward(batch=batch, network=network, conf=conf, is_val=False, \
+            total_loss = forward(batch=batch, network=network, prior_net=prior_net, conf=conf, is_val=False, \
                                  step=train_step, epoch=epoch, batch_ind=train_batch_ind, num_batch=train_num_batch,
                                  start_time=start_time, \
                                  log_console=log_console, log_tb=not conf.no_tb_log, tb_writer=train_writer,
@@ -172,7 +173,7 @@ def train(conf):
 
                 with torch.no_grad():
                     # forward pass (including logging)
-                    __ = forward(batch=val_batch, network=network, conf=conf, is_val=True, \
+                    __ = forward(batch=val_batch, network=network, prior_net=prior_net, conf=conf, is_val=True, \
                                  step=val_step, epoch=epoch, batch_ind=val_batch_ind, num_batch=val_num_batch,
                                  start_time=start_time, \
                                  log_console=log_console, log_tb=not conf.no_tb_log, tb_writer=val_writer,
@@ -187,28 +188,22 @@ def train(conf):
     utils.printout(conf.flog, 'DONE')
 
 
-def forward(batch, network, conf, is_val=False, step=None, epoch=None, batch_ind=0, num_batch=1, start_time=0,
+def forward(batch, network, prior_net, conf, is_val=False, step=None, epoch=None, batch_ind=0, num_batch=1, start_time=0,
             log_console=False, log_tb=False, tb_writer=None, lr=None):
     # prepare input
-    pcs, keys, gt_graph = batch
+    indices, pcs, gt_graph = batch
+    indices = indices[0].to(conf.device)
     pcs = pcs[0].to(conf.device)
-    keys = keys[0].to(conf.device)
     gt_graph = gt_graph[0].to(conf.device)
     # forward through the network
-    network.prior_net = network.prior_net.eval()
-    pc_feats, prior_graph = network.prior_net.build_prior(pcs)
-    import ipdb; ipdb.set_trace()
+    pc_feats, prior_graph = prior_net.build_prior(indices, pcs)
     z = network.encode(pc_feats, prior_graph)
     pos_edge_index = torch.stack(torch.where(gt_graph == True))
     neg_edge_index = torch.stack(torch.where(gt_graph == False))
     loss = network.recon_loss(z[0], pos_edge_index, neg_edge_index)
     if conf.variational:
         loss = loss + (1 / gt_graph.shape[0]) * network.kl_loss()
-    network.eval()
-    with torch.no_grad():
-        z = network.encode(pc_feats, prior_graph)
     auc, ap = network.test(z[0], pos_edge_index, neg_edge_index)
-    network.train()
 
     # display information
     data_split = 'train'

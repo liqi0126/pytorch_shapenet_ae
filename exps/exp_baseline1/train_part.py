@@ -47,6 +47,8 @@ def train(conf):
 
     # create models
     network = model_def.CasualNetwork(conf)
+    if conf.checkpoint is not None:
+        network.load_state_dict(torch.load(conf.checkpoint))
     utils.printout(conf.flog, '\n' + str(network) + '\n')
 
     models = [network]
@@ -172,12 +174,12 @@ def forward(batch, network, conf, \
             log_console=False, log_tb=False, tb_writer=None, lr=None):
     # prepare input
     src_idx, dst_idx, src_pc, dst_pc, src_gt, dst_gt = batch
-    src_idx = torch.cat(src_idx, dim=0).to(conf.device)
-    dst_idx = torch.cat(dst_idx, dim=0).to(conf.device)
-    src_pc = torch.cat(src_pc, dim=0).to(conf.device)
-    dst_pc = torch.cat(dst_pc, dim=0).to(conf.device)
-    src_gt = torch.cat(src_gt, dim=0).to(conf.device)
-    dst_gt = torch.cat(dst_gt, dim=0).to(conf.device)
+    src_idx = torch.stack(src_idx, dim=0).to(conf.device)
+    dst_idx = torch.stack(dst_idx, dim=0).to(conf.device)
+    src_pc = torch.stack(src_pc, dim=0).to(conf.device)
+    dst_pc = torch.stack(dst_pc, dim=0).to(conf.device)
+    src_gt = torch.stack(src_gt, dim=0).to(conf.device)
+    dst_gt = torch.stack(dst_gt, dim=0).to(conf.device)
 
     batch_size = src_pc.shape[0]
 

@@ -53,16 +53,15 @@ class CasualPartDataset(Dataset):
                 return True
         return False
 
-    def load_data(self, idx, type=None):
-        if type is not None:
-            df = pd.read_csv(f"part_data/{idx}_{type}.xyz")
-        else:
-            df = pd.read_csv(f"part_data/{idx}.xyz")
+    def load_data(self, idx):
+        df = pd.read_csv(f"part_data/{idx}.xyz")
         pc = df[['x', 'y', 'z']].to_numpy()
-        key = df[['key']].to_numpy()
-        pc = torch.from_numpy(pc).float().unsqueeze(0)
-        key = torch.from_numpy(key).float().squeeze().unsqueeze(0)
-        return pc, key
+        src = df[['src']].to_numpy()
+        tgt = df[['tgt']].to_numpy()
+        pc = torch.from_numpy(pc).float()
+        src = torch.from_numpy(src).float().squeeze()
+        tgt = torch.from_numpy(tgt).float().squeeze()
+        return pc, src, tgt
 
     def __getitem__(self, idx):
         i = idx // self.obj_num
@@ -73,12 +72,14 @@ class CasualPartDataset(Dataset):
         idx_i = self.sapien_indices[i]
         idx_j = self.sapien_indices[j]
 
+        pc_i, src_i, tgt_i = self.load_data(idx_i)
+        pc_j, key_j, tgt_j = self.load_data(idx_j)
         if self.check_relation(obj_i, obj_j):
-            pc_i, key_i = self.load_data(idx_i, 'src')
-            pc_j, key_j = self.load_data(idx_j, 'dst')
+            key_i = src_i
+            key_j = tgt_j
         else:
-            pc_i, key_i = self.load_data(idx_i)
-            pc_j, key_j = self.load_data(idx_j)
+            key_i = torch.zeros(pc_i.shape[0])
+            key_j = torch.zeros(pc_j.shape[0])
 
         onehot_i = torch.zeros(OBJ_NUM); onehot_i[obj_i.idx] = 1
         onehot_j = torch.zeros(OBJ_NUM); onehot_j[obj_j.idx] = 1
@@ -119,25 +120,15 @@ class CasualRelationDataset(CasualPartDataset):
                 return True
         return False
 
-    def load_data(self, idx, type=None):
-        if type is not None:
-            df = pd.read_csv(f"part_data/{idx}_{type}.xyz")
-        else:
-            df = pd.read_csv(f"part_data/{idx}.xyz")
-        pc = df[['x', 'y', 'z']].to_numpy()
-        key = df[['key']].to_numpy()
-        pc = torch.from_numpy(pc).float()
-        key = torch.from_numpy(key).float()
-        return pc, key
-
     def __getitem__(self, _):
         self.reset()
-        pcs, keys = [], []
-        for idx in self.sapien_indices:
-            pc, key = self.load_data(idx)
+        indices, pcs, keys = [], [], []
+        for OBJ, idx in zip(self.obj_groups, self.sapien_indices):
+            onehot = torch.zeros(OBJ_NUM); onehot[OBJ.idx] = 1
+            pc, src, tgt = self.load_data(idx)
+            indices.append(onehot)
             pcs.append(pc)
-            keys.append(key)
-        return torch.stack(pcs), torch.stack(keys), self.relation_graph()
+        return torch.stack(indices), torch.stack(pcs), self.relation_graph()
 
 
 if __name__ == '__main__':
