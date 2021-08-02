@@ -142,6 +142,8 @@ def get_global_mesh_link(obj, keys=None, include=True):
             # transmat = l.get_pose().to_transformation_matrix()
             # vs = (vs_ones @ transmat.T)[:, :3]
             final_vs.append(vs)
+    if len(final_vs) == 0:
+        return None, None
     final_vs = np.concatenate(final_vs, axis=0)
     final_fs = np.concatenate(final_fs, axis=0)
     final_links = np.concatenate(final_links, axis=0)
@@ -204,6 +206,8 @@ def get_pc_with_key(model, keys, npoints):
 def get_pc(model, npoints, keys=None, include=True, links=False):
     if model is not None:
         mesh, face_links = get_global_mesh_link(model, keys, include)
+        if mesh is None:
+            return None
         pc, fs = trimesh.sample.sample_surface_even(mesh, int(2 * npoints))
         pc_links = face_links[fs]
         if links:
